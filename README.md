@@ -18,7 +18,7 @@ uv sync
 ### Start the server
 
 ```bash
-uv run fastapi dev 3dguardrails/api.py
+uv run fastapi dev -e dddguardrails.api:app
 ```
 
 ### Testing Guidelines
