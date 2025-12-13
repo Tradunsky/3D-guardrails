@@ -28,6 +28,7 @@ class RiskFinding(BaseModel):
     category: str = Field(..., description="The classification category")
     severity: Literal["none", "low", "medium", "high"] = Field(..., description="Severity level of the classification")
     rationale: str = Field(..., description="Reason for the classification")
+    view_number: int = Field(..., description="The view/screenshot number where this finding was detected")
 
 
 class Guardrail:

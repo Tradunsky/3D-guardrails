@@ -128,18 +128,22 @@ async def scan_asset(
 
     guard = _get_guardrail(llm_provider)
     findings = guard.classify(
-        screenshots=screenshots, 
-        file_name=file.filename or "asset", 
-        file_format=extension, 
+        screenshots=screenshots,
+        file_name=file.filename or "asset",
+        file_format=extension,
         model=model
     )
     log.info("scan done | findings=%d", len(findings))
+
+    # Calculate views_evaluated as the maximum view_number from findings,
+    # or len(screenshots) if no findings (meaning all were evaluated)
+    views_evaluated = max((finding.view_number for finding in findings), default=len(screenshots))
 
     return ScanResponse(
         file_name=file.filename or "asset",
         file_format=extension,
         findings=findings,
-        metadata={"views_evaluated": len(screenshots)},
+        metadata={"views_evaluated": views_evaluated},
     )
 
 

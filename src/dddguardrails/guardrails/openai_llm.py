@@ -109,6 +109,7 @@ class OpenAIGuardrail(Guardrail):
                             category=category,
                             severity=finding.get("severity", "none").lower(),
                             rationale=finding.get("rationale", ""),
+                            view_number=idx,
                         )
                     )
                 return normalized
