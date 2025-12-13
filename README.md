@@ -38,3 +38,23 @@ For guidance on writing effective tests, see: [Testing on the Toilet: Change-Det
   - Accepts `.glb`, `.gltf`, `.fbx`, `.obj`, `.stl`, `.ply`
   - Returns detected categories with severity and rationale after multi-view screenshotting plus multimodal LLM analysis.
 
+### Roadmap
+
+- [x] OpenAI support
+- [x] Gemini support
+- [x] Ollama support
+- [x] User specified provider and models support
+- [x] Early exit on first violation (safe tokens)
+- [ ] Benchmark
+- [ ] Gradio demo
+- [ ] AWS Bedrock support
+- [ ] External AI gateways with OpenAI API compatibility
+- [ ] Configurable Categories: Allow users to define custom risk categories in their scan requests instead of being limited to the hardcoded ones (weapons, nudity, self-harm, etc.)
+- [ ] Add multi-modal (image, text, sound, video?)
+- [ ] Batch API
+- [ ] Async API
+- [ ] Streaming API
+- [ ] Reading content from URLs (presigned URL, internet content, ect)
+- [ ] Backwards compatible API with OpenAI and AWS Bedrock Guardrails
+- [ ] Configurable early exit (based on severity of findings?)
+
