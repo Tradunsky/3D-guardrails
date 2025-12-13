@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from dddguardrails.guardrail import RiskFinding
 
-from pydantic import BaseModel, Field
-
-
-class RiskFinding(BaseModel):
-    category: str = Field(..., description="Trust and safety category name.")
-    severity: Literal["none", "low", "medium", "high"]
-    rationale: str = Field(..., description="Reason for the classification.")
+from pydantic import BaseModel
 
 
 class ScanResponse(BaseModel):

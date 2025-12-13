@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import base64
-import json
 import logging
-from typing import Any, Dict, List
+from typing import List
 
-from openai import OpenAI
+from pydantic import BaseModel, Field
+from typing import Literal
 
 from dddguardrails.config import settings
 
@@ -23,6 +22,14 @@ CATEGORIES = {
 }
 
 
+class RiskFinding(BaseModel):
+    """Result model for guardrail classification."""
+
+    category: str = Field(..., description="The classification category")
+    severity: Literal["none", "low", "medium", "high"] = Field(..., description="Severity level of the classification")
+    rationale: str = Field(..., description="Reason for the classification")
+
+
 class Guardrail:
-    def classify(self, *, screenshots: List[bytes], file_name: str, file_format: str) -> List[Dict[str, Any]]:
+    def classify(self, *, screenshots: List[bytes], file_name: str, file_format: str, model: str | None = None) -> List[RiskFinding]:
         pass

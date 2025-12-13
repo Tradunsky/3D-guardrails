@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import field
 import os
 from typing import Tuple
 
@@ -35,6 +34,9 @@ class Settings(BaseSettings):
 
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3-pro-preview")
     gemini_api_key: str
+
+    ollama_model: str = os.getenv("OLLAMA_MODEL", "qwen3-vl:235b-cloud")
+    ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra="allow")
 

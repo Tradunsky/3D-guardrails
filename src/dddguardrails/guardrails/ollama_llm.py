@@ -1,18 +1,19 @@
 from logging import getLogger
-from typing import Any, Dict, List
-from google import genai
-from google.genai import types
+from typing import List
+import json
+import base64
+
+import ollama
+
 from dddguardrails.guardrail import Guardrail, RiskFinding, CATEGORIES
 from dddguardrails.config import settings
 
 log = getLogger()
 
-class GeminiGuardrail(Guardrail):
-    def __init__(self, api_key:str=settings.gemini_api_key) -> None:
-        self._client: genai.Client = genai.Client(
-            api_key=api_key
-        )
-        self._default_model = settings.gemini_model
+class OllamaGuardrail(Guardrail):
+    def __init__(self, base_url: str = settings.ollama_base_url) -> None:
+        self._client = ollama.Client(host=base_url)
+        self._default_model = settings.ollama_model
 
     def classify(self, *, screenshots: List[bytes], file_name: str, file_format: str, model: str | None = None) -> List[RiskFinding]:
         """Send screenshots to the LLM one by one until first violation is found."""
@@ -27,53 +28,38 @@ class GeminiGuardrail(Guardrail):
             "\n If a category is not present, omit it from the list."
         )
 
-        response_format = {
-            "type": "object",
-            "properties": {
-                "findings": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "category": {"type": "string"},
-                            "severity": {"type": "string"},
-                            "rationale": {"type": "string"},
-                        },
-                        "required": ["category", "severity", "rationale"],
-                        "additionalProperties": False,
-                    },
-                },
-            },
-            "required": ["findings"],
-            "additionalProperties": False,
-        }
-
         model_to_use = model or self._default_model
         log.info("classifying | model=%s views=%d file=%s", model_to_use, len(screenshots), file_name)
 
         # Process screenshots one by one until first violation is found
         for idx, image_bytes in enumerate(screenshots, start=1):
-            content = [
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part.from_text(text=instructions),
-                        types.Part.from_bytes(data=image_bytes, mime_type="image/png")
-                    ]
-                )
-            ]
+            # Convert image bytes to base64 string for Ollama
+            b64_image = base64.b64encode(image_bytes).decode('ascii')
 
             log.debug("checking screenshot %d/%d for file=%s", idx, len(screenshots), file_name)
-            response = self._client.models.generate_content(
+
+            response = self._client.chat(
                 model=model_to_use,
-                contents=content,
-                config=types.GenerateContentConfig(
-                    response_mime_type='application/json',
-                    response_json_schema=response_format
-                ),
+                messages=[
+                    {
+                        'role': 'user',
+                        'content': f"{instructions}\n\nRespond with a JSON object containing a 'findings' array.",
+                        'images': [b64_image]
+                    }
+                ]
             )
 
-            findings_list = response.parsed.get("findings", []) if isinstance(response.parsed, dict) else []
+            # Extract response content
+            if not response or not response.get('message') or not response['message'].get('content'):
+                raise RuntimeError(f"No response content from Ollama for screenshot {idx}")
+
+            content = response['message']['content']
+            try:
+                parsed = json.loads(content)
+            except json.JSONDecodeError as exc:
+                raise RuntimeError(f"Failed to parse JSON response from Ollama: {exc}") from exc
+
+            findings_list = parsed.get("findings", []) if isinstance(parsed, dict) else []
 
             # Early exit if violations found
             if findings_list:
@@ -95,4 +81,3 @@ class GeminiGuardrail(Guardrail):
         # No violations found in any screenshot
         log.info("no violations found for file=%s after checking %d screenshots", file_name, len(screenshots))
         return []
-

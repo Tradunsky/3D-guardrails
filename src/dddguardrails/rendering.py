@@ -96,7 +96,7 @@ def generate_multiview_images(mesh: trimesh.Trimesh, config: RenderConfig) -> Li
             distance=config.distance,
             center=mesh.centroid,
         )
-        png_bytes = scene.save_image(resolution=config.resolution, visible=True)
+        png_bytes = scene.save_image(resolution=config.resolution, visible=False)
         if not png_bytes:
             raise AssetProcessingError("Failed to render multi-view screenshot.")
         renders.append(io.BytesIO(png_bytes).getvalue())
