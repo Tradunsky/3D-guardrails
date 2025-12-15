@@ -1,3 +1,19 @@
+---
+title: 3D guardrails
+short_description: 3D content you can trust
+emoji: 🛡️
+colorFrom: black
+colorTo: white
+sdk: gradio
+sdk_version: 5.50.0
+pinned: true
+license: apache-2.0
+app_file: src/dddguardrails/demo.py
+tags:
+  - 3D guardrails
+  - 3D 
+---
+
 ## 3D Guardrails API
 
 Run the FastAPI server to scan 3D assets for trust-and-safety risks.
