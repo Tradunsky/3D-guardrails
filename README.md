@@ -2,8 +2,8 @@
 title: 3D guardrails
 short_description: 3D content you can trust
 emoji: 🛡️
-colorFrom: black
-colorTo: white
+colorFrom: blue
+colorTo: indigo
 sdk: gradio
 sdk_version: 5.50.0
 pinned: true
