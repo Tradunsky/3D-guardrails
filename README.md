@@ -5,10 +5,10 @@ emoji: 🛡️
 colorFrom: blue
 colorTo: indigo
 sdk: gradio
-sdk_version: 5.50.0
+sdk_version: 4.0.0
 pinned: true
 license: apache-2.0
-app_file: src/dddguardrails/demo.py
+app_file: demo.py
 tags:
   - 3D guardrails
   - 3D 
