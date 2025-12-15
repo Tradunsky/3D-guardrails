@@ -21,6 +21,21 @@ uv sync
 uv run fastapi dev -e dddguardrails.api:app
 ```
 
+### Gradio Demo
+
+Launch an interactive web interface for testing the 3D guardrails:
+
+```bash
+uv run python -m dddguardrails.demo
+```
+
+The demo will be available at http://localhost:7860 and provides:
+- File upload interface for 3D models
+- LLM provider and model selection
+- Real-time safety analysis results
+- Clear display of risk findings and severity levels
+
+
 ### Testing Guidelines
 
 **Avoid Change-Detector Tests**: This codebase follows best practices for unit testing. Mock tests that verify implementation details rather than behavior are harmful because they break during refactoring and don't provide real confidence in functionality.
@@ -46,7 +61,7 @@ For guidance on writing effective tests, see: [Testing on the Toilet: Change-Det
 - [x] User specified provider and models support
 - [x] Early exit on first violation (safe tokens)
 - [ ] Benchmark
-- [ ] Gradio demo
+- [x] Gradio demo
 - [ ] AWS Bedrock support
 - [ ] External AI gateways with OpenAI API compatibility
 - [ ] Configurable Categories: Allow users to define custom risk categories in their scan requests instead of being limited to the hardcoded ones (weapons, nudity, self-harm, etc.)

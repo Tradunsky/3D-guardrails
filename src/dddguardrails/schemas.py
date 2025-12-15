@@ -12,4 +12,3 @@ class ScanResponse(BaseModel):
     file_format: str
     findings: list[RiskFinding]
     metadata: dict[str, str | int | float]
-

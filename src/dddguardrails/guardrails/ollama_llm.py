@@ -10,12 +10,20 @@ from dddguardrails.config import settings
 
 log = getLogger()
 
+
 class OllamaGuardrail(Guardrail):
     def __init__(self, base_url: str = settings.ollama_base_url) -> None:
         self._client = ollama.Client(host=base_url)
         self._default_model = settings.ollama_model
 
-    def classify(self, *, screenshots: List[bytes], file_name: str, file_format: str, model: str | None = None) -> List[RiskFinding]:
+    def classify(
+        self,
+        *,
+        screenshots: List[bytes],
+        file_name: str,
+        file_format: str,
+        model: str | None = None,
+    ) -> List[RiskFinding]:
         """Send screenshots to the LLM one by one until first violation is found."""
         categories = "\n".join(f"- {name}: {desc}" for name, desc in CATEGORIES.items())
         instructions = (
@@ -29,41 +37,66 @@ class OllamaGuardrail(Guardrail):
         )
 
         model_to_use = model or self._default_model
-        log.info("classifying | model=%s views=%d file=%s", model_to_use, len(screenshots), file_name)
+        log.info(
+            "classifying | model=%s views=%d file=%s",
+            model_to_use,
+            len(screenshots),
+            file_name,
+        )
 
         # Process screenshots one by one until first violation is found
         for idx, image_bytes in enumerate(screenshots, start=1):
             # Convert image bytes to base64 string for Ollama
-            b64_image = base64.b64encode(image_bytes).decode('ascii')
+            b64_image = base64.b64encode(image_bytes).decode("ascii")
 
-            log.debug("checking screenshot %d/%d for file=%s", idx, len(screenshots), file_name)
+            log.debug(
+                "checking screenshot %d/%d for file=%s",
+                idx,
+                len(screenshots),
+                file_name,
+            )
 
             response = self._client.chat(
                 model=model_to_use,
                 messages=[
                     {
-                        'role': 'user',
-                        'content': f"{instructions}\n\nRespond with a JSON object containing a 'findings' array.",
-                        'images': [b64_image]
+                        "role": "user",
+                        "content": f"{instructions}\n\nRespond with a JSON object containing a 'findings' array.",
+                        "images": [b64_image],
                     }
-                ]
+                ],
             )
 
             # Extract response content
-            if not response or not response.get('message') or not response['message'].get('content'):
-                raise RuntimeError(f"No response content from Ollama for screenshot {idx}")
+            if (
+                not response
+                or not response.get("message")
+                or not response["message"].get("content")
+            ):
+                raise RuntimeError(
+                    f"No response content from Ollama for screenshot {idx}"
+                )
 
-            content = response['message']['content']
+            content = response["message"]["content"]
             try:
                 parsed = json.loads(content)
             except json.JSONDecodeError as exc:
-                raise RuntimeError(f"Failed to parse JSON response from Ollama: {exc}") from exc
+                raise RuntimeError(
+                    f"Failed to parse JSON response from Ollama: {exc}"
+                ) from exc
 
-            findings_list = parsed.get("findings", []) if isinstance(parsed, dict) else []
+            findings_list = (
+                parsed.get("findings", []) if isinstance(parsed, dict) else []
+            )
 
             # Early exit if violations found
             if findings_list:
-                log.info("found violations in screenshot %d/%d for file=%s", idx, len(screenshots), file_name)
+                log.info(
+                    "found violations in screenshot %d/%d for file=%s",
+                    idx,
+                    len(screenshots),
+                    file_name,
+                )
                 normalized: List[RiskFinding] = []
                 for finding in findings_list:
                     category = finding.get("category", "").strip().lower()
@@ -80,5 +113,9 @@ class OllamaGuardrail(Guardrail):
                 return normalized
 
         # No violations found in any screenshot
-        log.info("no violations found for file=%s after checking %d screenshots", file_name, len(screenshots))
+        log.info(
+            "no violations found for file=%s after checking %d screenshots",
+            file_name,
+            len(screenshots),
+        )
         return []

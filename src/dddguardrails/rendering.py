@@ -34,7 +34,9 @@ def _ensure_mesh(asset: trimesh.base.Trimesh | trimesh.Scene) -> trimesh.Trimesh
     if isinstance(asset, list):
         meshes = [mesh for mesh in asset if isinstance(mesh, trimesh.Trimesh)]
         if not meshes:
-            raise AssetProcessingError("The provided asset did not contain mesh geometry.")
+            raise AssetProcessingError(
+                "The provided asset did not contain mesh geometry."
+            )
         return trimesh.util.concatenate(meshes)
     raise AssetProcessingError(f"Unsupported asset type: {type(asset)!r}")
 
@@ -76,7 +78,9 @@ def _to_radians(angles: Iterable[int]) -> Tuple[float, float, float]:
     elif len(vals) == 3:
         azimuth_deg, elevation_deg, roll_deg = vals
     else:
-        raise AssetProcessingError("Camera angles must be 2 or 3 values (azimuth, elevation[, roll]).")
+        raise AssetProcessingError(
+            "Camera angles must be 2 or 3 values (azimuth, elevation[, roll])."
+        )
     return (
         float(np.deg2rad(azimuth_deg)),
         float(np.deg2rad(elevation_deg)),
@@ -84,7 +88,9 @@ def _to_radians(angles: Iterable[int]) -> Tuple[float, float, float]:
     )
 
 
-def generate_multiview_images(mesh: trimesh.Trimesh, config: RenderConfig) -> List[bytes]:
+def generate_multiview_images(
+    mesh: trimesh.Trimesh, config: RenderConfig
+) -> List[bytes]:
     """Generate renders from multiple viewpoints."""
     scene = mesh.scene()
     scene.camera.fov = (45, 45)
@@ -101,4 +107,3 @@ def generate_multiview_images(mesh: trimesh.Trimesh, config: RenderConfig) -> Li
             raise AssetProcessingError("Failed to render multi-view screenshot.")
         renders.append(io.BytesIO(png_bytes).getvalue())
     return renders
-

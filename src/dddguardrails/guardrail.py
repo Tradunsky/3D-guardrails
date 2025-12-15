@@ -8,7 +8,6 @@ from typing import List
 from pydantic import BaseModel, Field
 from typing import Literal
 
-from dddguardrails.config import settings
 
 log = logging.getLogger("dddguardrails.llm")
 

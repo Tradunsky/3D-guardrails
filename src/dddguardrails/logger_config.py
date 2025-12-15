@@ -8,7 +8,7 @@ from logging.config import dictConfig
 LOG_FORMAT = "%(levelname).1s %(asctime)s %(name)s:%(lineno)d | %(message)s"
 
 
-def configure_logging(level: int = logging.DEBUG) -> None:
+def configure_logging(level: int = logging.INFO) -> None:
     """
     Configure logging using a dictConfig with a compact console formatter.
 
