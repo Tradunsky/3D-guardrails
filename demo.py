@@ -3,7 +3,9 @@
 
 import os
 import sys
+
 from io import BytesIO
+from logging import getLogger
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -15,6 +17,8 @@ import pandas as pd
 from fastapi import UploadFile
 
 from dddguardrails.api import scan_asset
+
+log = getLogger(__name__)
 
 
 async def scan_3d_asset(
@@ -86,6 +90,7 @@ async def scan_3d_asset(
         return findings_df, status
 
     except Exception as e:
+        log.error("❌ Error: ", e, exc_info=True)
         return pd.DataFrame(
             columns=["Category", "Severity", "Rationale", "View Number"]
         ), f"❌ Error: {str(e)}"
@@ -125,8 +130,7 @@ demo = gr.Interface(
     examples=[
         [str(dataset_dir / file), "gemini", "gemini-3-pro-preview"]
         for file in os.listdir(dataset_dir)
-        if file.endswith(('.glb', '.gltf', '.fbx', '.obj', '.stl', '.ply'))
-    ] if dataset_dir.exists() else [],
+    ],
 )
 
 
