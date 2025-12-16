@@ -8,6 +8,8 @@ from typing import Iterable, List, Sequence, Tuple
 
 import numpy as np
 import trimesh
+import pyrender
+import pyrr
 
 
 class AssetProcessingError(RuntimeError):
@@ -91,19 +93,57 @@ def _to_radians(angles: Iterable[int]) -> Tuple[float, float, float]:
 def generate_multiview_images(
     mesh: trimesh.Trimesh, config: RenderConfig
 ) -> List[bytes]:
-    """Generate renders from multiple viewpoints."""
-    scene = mesh.scene()
-    scene.camera.fov = (45, 45)
-    scene.camera.resolution = config.resolution
+    """Generate renders from multiple viewpoints using pyrender for headless rendering."""
+    # Convert trimesh mesh to pyrender mesh
+    pyrender_mesh = pyrender.Mesh.from_trimesh(mesh)
+
+    # Create pyrender scene
+    scene = pyrender.Scene()
+    scene.add(pyrender_mesh)
+
+    # Set up camera
+    camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0)  # 60 degrees FOV
+
+    # Set up renderer
+    renderer = pyrender.OffscreenRenderer(
+        viewport_width=config.resolution[0],
+        viewport_height=config.resolution[1]
+    )
+
     renders: List[bytes] = []
+
     for azimuth_deg, elevation_deg in config.view_angles:
-        scene.set_camera(
-            angles=_to_radians((azimuth_deg, elevation_deg)),
-            distance=config.distance,
-            center=mesh.centroid,
+        azimuth_rad, elevation_rad, _ = _to_radians((azimuth_deg, elevation_deg, 0))
+
+        # Calculate camera position
+        distance = config.distance
+        x = distance * np.cos(elevation_rad) * np.cos(azimuth_rad)
+        y = distance * np.cos(elevation_rad) * np.sin(azimuth_rad)
+        z = distance * np.sin(elevation_rad)
+
+        camera_position = np.array([x, y, z])
+        center = mesh.centroid
+
+        # Create look-at matrix using pyrr
+        look_at_matrix = pyrr.matrix44.create_look_at(
+            eye=camera_position,
+            target=center,
+            up=np.array([0, 0, 1])
         )
-        png_bytes = scene.save_image(resolution=config.resolution, visible=False)
-        if not png_bytes:
-            raise AssetProcessingError("Failed to render multi-view screenshot.")
-        renders.append(io.BytesIO(png_bytes).getvalue())
+
+        # Invert to get camera pose and ensure it's a proper transformation matrix
+        camera_pose = np.linalg.inv(look_at_matrix)
+        camera_pose[3, :] = [0, 0, 0, 1]  # Ensure bottom row is correct
+
+        # Add camera to scene with pose
+        camera_node = scene.add(camera, pose=camera_pose)
+
+        # Render
+        color, _ = renderer.render(scene)
+        renders.append(color.tobytes())
+
+        # Remove camera for next iteration
+        scene.remove_node(camera_node)
+
+    renderer.delete()
     return renders
