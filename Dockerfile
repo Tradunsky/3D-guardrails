@@ -23,10 +23,8 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Install compatible fork of PyOpenGL for OSMesa
-RUN git clone https://github.com/mmatl/pyopengl.git /tmp/pyopengl && \
-    pip install --user /tmp/pyopengl && \
-    rm -rf /tmp/pyopengl
+# Install standard PyOpenGL (newer versions support OSMesa)
+RUN pip install --upgrade PyOpenGL
 
 # Create virtual environment and install Python dependencies
 RUN python -m venv /opt/venv
