@@ -127,10 +127,10 @@ demo = gr.Interface(
     title="🛡️ 3D Guardrails with MCP",
     description="Scan 3D assets for trust and safety risks using multimodal AI with MCP (Model Context Protocol) enabled. Supported formats: GLB, GLTF, FBX, OBJ, STL, PLY. Risk categories: Weapons, Nudity, Self-harm, Extremism, Hate symbols, Misleading content.",
     analytics_enabled=False,
-    examples=[
-        [str(dataset_dir / file), "gemini", "gemini-3-pro-preview"]
-        for file in os.listdir(dataset_dir)
-    ],
+    # examples=[
+        # [str(dataset_dir / file), "gemini", "gemini-3-pro-preview"]
+        # for file in os.listdir(dataset_dir)
+    # ],
 )
 
 
