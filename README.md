@@ -4,7 +4,8 @@ short_description: 3D content you can trust
 emoji: 🛡️
 colorFrom: blue
 colorTo: indigo
-sdk: gradio
+sdk: docker
+app_port: 7860
 sdk_version: 	6.1.0
 pinned: true
 license: apache-2.0
