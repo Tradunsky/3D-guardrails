@@ -278,6 +278,7 @@ dependencies = [
     { name = "pyrender" },
     { name = "pytest" },
     { name = "python-multipart" },
+    { name = "scipy" },
     { name = "trimesh" },
 ]
 
@@ -295,6 +296,7 @@ requires-dist = [
     { name = "pyrender", specifier = ">=0.1.45" },
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "python-multipart", specifier = ">=0.0.9" },
+    { name = "scipy", specifier = ">=1.16.3" },
     { name = "trimesh", specifier = ">=4.4.3" },
 ]
 

@@ -108,12 +108,13 @@ demo = gr.Interface(
         gr.Dropdown(
             label="LLM Provider",
             choices=["ollama", "gemini", "openai"],
-            value="ollama",
+            value="gemini",
             info="Select the AI model provider for analysis",
         ),
         gr.Textbox(
             label="Model (Optional)",
-            placeholder="e.g., gpt-4o, gemini-pro, llama3.2-vision",
+            value="gemini-3-pro-preview",
+            placeholder="e.g., gpt-4o, gemini-3-pro-preview, qwen3-vl:235b-cloud",
             info="Leave empty to use the provider's default model",
         ),
     ],

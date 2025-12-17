@@ -51,6 +51,46 @@ The demo will be available at http://localhost:7860 and provides:
 - Real-time safety analysis results
 - Clear display of risk findings and severity levels
 
+### Docker
+
+Run the application using Docker for easy deployment with off-screen rendering support.
+
+#### Build the Image
+
+```bash
+docker build -t dddguardrails .
+```
+
+#### Run Gradio Demo (Default)
+
+```bash
+# Using docker run
+docker run -p 7860:7860 -e APP_MODE=gradio dddguardrails
+
+# Using docker-compose (recommended)
+docker-compose up gradio
+```
+
+Access the Gradio interface at http://localhost:7860
+
+#### Run FastAPI Service
+
+```bash
+# Using docker run
+docker run -p 8000:8000 -e APP_MODE=fastapi dddguardrails
+
+# Using docker-compose (recommended)
+docker-compose up fastapi
+```
+
+Access the FastAPI docs at http://localhost:8000/v1/guardrails/docs
+
+#### Environment Variables
+
+- `APP_MODE`: Set to `gradio` (default) or `fastapi`
+- `OPENAI_API_KEY`: Your OpenAI API key (optional)
+- `GEMINI_API_KEY`: Your Google Gemini API key (optional)
+- `OLLAMA_BASE_URL`: Ollama server URL (default: http://localhost:11434)
 
 ### Testing Guidelines
 

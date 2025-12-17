@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+      - "7860:7860"
+    environment:
+      - RUN_MODE=${RUN_MODE:-gradio}
+    volumes:
+      - .:/app
+    network_mode: "host"
