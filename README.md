@@ -15,6 +15,8 @@ tags:
   - 3D 
 ---
 
+[![Hugging Face Spaces](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-lg.svg)](https://huggingface.co/spaces/tradunsky/3D-guardrails)
+
 ## 3D Guardrails API
 
 Run the FastAPI server to scan 3D assets for trust-and-safety risks.
