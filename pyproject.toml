@@ -3,7 +3,7 @@ name = "dddguardrails"
 version = "0.1.0"
 description = "3D guardrails"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = "==3.11.*"
 dependencies = [
     "fastapi[standard]>=0.123.2",
     "python-multipart>=0.0.9",

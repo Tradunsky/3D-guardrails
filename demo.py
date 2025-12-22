@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Gradio demo for 3D Guardrails with MCP support."""
 
-import os
 import sys
 
 from io import BytesIO
@@ -104,19 +103,29 @@ demo = gr.Interface(
     inputs=[
         gr.Model3D(
             label="3D Model File",
-        ),
+        )
+    ],
+    additional_inputs=[
         gr.Dropdown(
-            label="LLM Provider",
-            choices=["ollama", "gemini", "openai"],
+            label="LVM Provider",
+            choices=["gemini", "openai", "ollama"],
             value="gemini",
             info="Select the AI model provider for analysis",
         ),
-        gr.Textbox(
-            label="Model (Optional)",
-            value="gemini-3-pro-preview",
-            placeholder="e.g., gpt-4o, gemini-3-pro-preview, qwen3-vl:235b-cloud",
+        gr.Dropdown(
+            label="Model (Optional, Editable)",
+            value="gemini-3-flash-preview",
+            choices=[                
+                "gemini-3-flash-preview",
+                "gemini-3-pro-preview",
+                "gemini-2.5-flash-preview-09-2025",
+                "gpt-4o",
+                "gpt-5.2",
+                "qwen3-vl:235b-cloud",
+            ],
             info="Leave empty to use the provider's default model",
-        ),
+            allow_custom_value=True,
+        )
     ],
     outputs=[
         gr.Dataframe(
@@ -126,7 +135,7 @@ demo = gr.Interface(
         gr.Textbox(label="Status"),
     ],
     title="🛡️ 3D Guardrails with MCP",
-    description="Scan 3D assets for trust and safety risks using multimodal AI with MCP (Model Context Protocol) enabled. Supported formats: GLB, GLTF, FBX, OBJ, STL, PLY. Risk categories: Weapons, Nudity, Self-harm, Extremism, Hate symbols, Misleading content.",
+    description="Scan 3D assets for trust and safety risks using multimodal AI with MCP (Model Context Protocol) enabled. Supported formats: GLB, GLTF, FBX, OBJ, STL, PLY. Risk categories: Weapons, Nudity, Self-harm, Extremism, Hate symbols, Misleading content.\n Github: https://github.com/Tradunsky/3D-guardrails",
     analytics_enabled=False,
     # examples=[
         # [str(dataset_dir / file), "gemini", "gemini-3-pro-preview"]

@@ -22,9 +22,7 @@ from dddguardrails.guardrails.openai_llm import OpenAIGuardrail
 from dddguardrails.logger_config import configure_logging
 from dddguardrails.rendering import (
     AssetProcessingError,
-    RenderConfig,
-    generate_multiview_images,
-    load_mesh,
+    generate_multiview_images,    
 )
 from dddguardrails.schemas import ScanResponse
 
@@ -138,18 +136,12 @@ async def scan_asset(
             tmp.write(contents)
         tmp_path = Path(temp_path)
 
-        mesh = load_mesh(str(tmp_path))
-        render_config = RenderConfig(
-            resolution=settings.screenshot_resolution,
-            distance=settings.camera_distance,
-            view_angles=settings.multi_view_angles,
-        )
-        screenshots = generate_multiview_images(mesh, render_config)
-        log.debug(
-            "rendered screenshots | count=%d res=%s",
-            len(screenshots),
-            render_config.resolution,
-        )
+        screenshots = generate_multiview_images(str(tmp_path))
+        log.debug("rendered screenshots | count=%d", len(screenshots))
+        if bool(os.getenv("3DG_DUMP_SCREENSHOTS", False)) is True:
+            for view_number, screenshot in enumerate(screenshots):
+                with open(f"screenshot-{view_number}.png", "wb") as f:
+                    f.write(screenshot)
     finally:
         os.unlink(temp_path)
 

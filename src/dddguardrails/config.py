@@ -20,7 +20,7 @@ class Settings(BaseSettings):
         "ply",
     )
     screenshot_resolution: Tuple[int, int] = (512, 512)
-    camera_distance: float = 2.5
+    camera_distance: float = 1.2
     multi_view_angles: Tuple[Tuple[int, int], ...] = (
         (0, 10),
         (90, 10),

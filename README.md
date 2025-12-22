@@ -19,9 +19,11 @@ tags:
 
 Run the FastAPI server to scan 3D assets for trust-and-safety risks.
 
+![Example](./.docs/images/weapons.png)
+
 ### Prerequisites
 
-- Python 3.14+
+- Python 3.11
 - For OpenAI: `OPENAI_API_KEY` exported in your environment
 - For Gemini: `GEMINI_API_KEY` exported in your environment
 - For Ollama: Local Ollama server running (default: http://localhost:11434)
@@ -69,7 +71,7 @@ docker build -t dddguardrails .
 docker run -p 7860:7860 -e APP_MODE=gradio dddguardrails
 
 # Using docker-compose (recommended)
-docker-compose up gradio
+docker-compose -p local up -d --no-deps --build app
 ```
 
 Access the Gradio interface at http://localhost:7860
@@ -116,7 +118,8 @@ For guidance on writing effective tests, see: [Testing on the Toilet: Change-Det
 - [x] Gemini support
 - [x] Ollama support
 - [x] User specified provider and models support
-- [x] Early exit on first violation (safe tokens)
+- [x] Early exit on the first violation (save tokens)
+- [x] Docker/docker-compose support with headless rendering
 - [ ] Benchmark
 - [x] Gradio demo
 - [ ] AWS Bedrock support
