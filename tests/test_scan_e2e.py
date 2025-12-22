@@ -11,15 +11,15 @@ from dddguardrails.guardrail import CATEGORIES
 # Expected violation status for each test file
 # True = violations expected, False = no violations expected
 EXPECTED_VIOLATIONS = {
-    "nazi_pistol.glb": True,
     "nazi_gemany_eagle_logo.glb": True,
-    "swastika 3D.glb": True,
-    "bikini-woman-seated.glb": True,
-    "DiaoChann.glb": False,
+    "swastika_3D.glb": True,
+    "bikini_woman.glb": True,
+    "belt.glb": True,
+    "candy.glb": True,
+    "diao_chann.glb": False,
     "homer.obj": False,
     "bimba.obj": False,
-    "rocker-arm.obj": False,
-    "belt G.glb": True,
+    "rocker_arm.obj": False,
 }
 
 
