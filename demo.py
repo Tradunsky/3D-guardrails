@@ -163,6 +163,8 @@ demo = gr.Interface(
         [str(dataset_dir / file), "gemini", "gemini-3-flash-preview"]
         for file in os.listdir(dataset_dir)
     ],
+    cache_examples=False,
+    cache_mode="lazy",
     flagging_mode="never",
 )
 
