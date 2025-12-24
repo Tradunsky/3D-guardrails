@@ -2,7 +2,10 @@
 """Gradio demo for 3D Guardrails with MCP support."""
 
 import sys
+import os
+import time
 
+import pandas as pd
 from io import BytesIO
 from logging import getLogger
 from pathlib import Path
@@ -16,6 +19,7 @@ import pandas as pd
 from fastapi import UploadFile
 
 from dddguardrails.api import scan_asset
+from dddguardrails.schemas import ScanResponse
 
 log = getLogger(__name__)
 
@@ -49,7 +53,7 @@ async def scan_3d_asset(
             file=upload_file,
             llm_provider=llm_provider,
             model=model.strip() if model and model.strip() else None,
-        )
+        )        
 
         # Process findings for display
         findings_data = []
@@ -85,8 +89,16 @@ async def scan_3d_asset(
             status = (
                 f"✅ No violations detected after evaluating {views_evaluated} views."
             )
-
-        return findings_df, status
+        
+        latency = result.metadata["latency"]
+        latencies_data = [            
+            {" ": " ", "Legend": f"Total Latency", "ms": latency["total_ms"]},
+            {" ": "  ", "Legend": f"Rendering", "ms": latency["rendering_ms"]},
+            {" ": "  ", "Legend": f"LLM", "ms": latency["llm_ms"]},
+        ]
+        latencies_df = pd.DataFrame(latencies_data)
+        
+        return findings_df, status, latencies_df
 
     except Exception as e:
         log.error("❌ Error: ", e, exc_info=True)
@@ -133,14 +145,25 @@ demo = gr.Interface(
             headers=["Category", "Severity", "Rationale", "View Number"],
         ),
         gr.Textbox(label="Status"),
+        gr.BarPlot(
+            x="ms", 
+            y=" ",
+            x_title="Latency (ms)", 
+            y_title="",
+            color="Legend", 
+            title="Processing Latency Breakdown",
+            tooltip=["Legend", "ms"],
+            height=250,
+        ),
     ],
     title="🛡️ 3D Guardrails with MCP",
     description="Scan 3D assets for trust and safety risks using multimodal AI with MCP (Model Context Protocol) enabled. Supported formats: GLB, GLTF, FBX, OBJ, STL, PLY. Risk categories: Weapons, Nudity, Self-harm, Extremism, Hate symbols, Misleading content.\n Github: https://github.com/Tradunsky/3D-guardrails",
     analytics_enabled=False,
-    # examples=[
-        # [str(dataset_dir / file), "gemini", "gemini-3-pro-preview"]
-        # for file in os.listdir(dataset_dir)
-    # ],
+    examples=[
+        [str(dataset_dir / file), "gemini", "gemini-3-flash-preview"]
+        for file in os.listdir(dataset_dir)
+    ],
+    flagging_mode="never",
 )
 
 
@@ -149,5 +172,5 @@ if __name__ == "__main__":
         server_name="0.0.0.0",
         server_port=7860,
         share=False,
-        mcp_server=True,
+        mcp_server=True, 
     )

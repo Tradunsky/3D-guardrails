@@ -10,3 +10,17 @@ services:
     volumes:
       - .:/app
     network_mode: "host"
+    develop:
+      watch:
+        - action: sync
+          path: . ./src
+          target: /app
+          ignore:
+            - .venv
+            - .git
+            - .idea
+            - .vscode
+            - .eggs
+            - .cache
+        - action: rebuild
+          path: requirements.txt Dockerfile docker-compose.yaml

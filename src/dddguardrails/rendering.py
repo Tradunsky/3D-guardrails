@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import os
+import time
 from dataclasses import dataclass
 from typing import Iterable, List, Sequence, Tuple
 
@@ -193,6 +194,7 @@ def _render(
             log.info("Rendering view %d/%d (azimuth=%d, elevation=%d)", 
                     len(renders) + 1, len(config.view_angles), azimuth_deg, elevation_deg)
             
+            start_time = time.time()
             color, _ = r.render(scene, flags=pyrender.RenderFlags.RGBA)
             
             # Convert to PIL and bytes
@@ -200,6 +202,10 @@ def _render(
             with io.BytesIO() as output:
                 image.save(output, format="PNG")
                 renders.append(output.getvalue())
+            
+            end_time = time.time()
+            log.info("Rendered view %d/%d (azimuth=%d, elevation=%d) in %f seconds", 
+                    len(renders), len(config.view_angles), azimuth_deg, elevation_deg, end_time - start_time)
                 
     finally:
         r.delete()

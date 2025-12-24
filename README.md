@@ -123,6 +123,7 @@ For guidance on writing effective tests, see: [Testing on the Toilet: Change-Det
 - [x] Early exit on the first violation (save tokens)
 - [x] Docker/docker-compose support with headless rendering
 - [ ] Benchmark
+- [ ] Evals
 - [x] Gradio demo
 - [ ] AWS Bedrock support
 - [ ] External AI gateways with OpenAI API compatibility

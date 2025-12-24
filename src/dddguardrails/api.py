@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -110,6 +111,7 @@ async def scan_asset(
         description="Specific model to use (optional, uses default if not specified)",
     ),
 ) -> ScanResponse:
+    start_time = time.perf_counter()
     extension = _normalize_extension(file.filename)
     if extension not in settings.supported_formats:
         supported_formats_csv = ", ".join(settings.supported_formats)
@@ -136,7 +138,9 @@ async def scan_asset(
             tmp.write(contents)
         tmp_path = Path(temp_path)
 
+        rendering_start_time = time.perf_counter()
         screenshots = generate_multiview_images(str(tmp_path))
+        rendering_end_time = time.perf_counter()
         log.debug("rendered screenshots | count=%d", len(screenshots))
         if bool(os.getenv("3DG_DUMP_SCREENSHOTS", False)) is True:
             for view_number, screenshot in enumerate(screenshots):
@@ -145,6 +149,7 @@ async def scan_asset(
     finally:
         os.unlink(temp_path)
 
+    llm_start_time = time.perf_counter()
     guard = _get_guardrail(llm_provider)
     findings = guard.classify(
         screenshots=screenshots,
@@ -152,6 +157,7 @@ async def scan_asset(
         file_format=extension,
         model=model,
     )
+    llm_end_time = time.perf_counter()
     log.info("scan done | findings=%d", len(findings))
 
     # Calculate views_evaluated as the maximum view_number from findings,
@@ -160,11 +166,21 @@ async def scan_asset(
         (finding.view_number for finding in findings), default=len(screenshots)
     )
 
+    end_time = time.perf_counter()
     return ScanResponse(
         file_name=file.filename or "asset",
         file_format=extension,
         findings=findings,
-        metadata={"views_evaluated": views_evaluated},
+        metadata={
+            "views_evaluated": views_evaluated, 
+            "model": model, 
+            "llm_provider": llm_provider,
+            "latency": {
+                "total_ms": round((end_time - start_time) * 1000, 2),
+                "rendering_ms": round((rendering_end_time - rendering_start_time) * 1000, 2),
+                "llm_ms": round((llm_end_time - llm_start_time) * 1000, 2),
+            }
+        },
     )
 
 
