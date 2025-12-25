@@ -31,5 +31,13 @@ class RiskFinding(BaseModel):
 
 
 class Guardrail:
-    def classify(self, *, screenshots: List[bytes], file_name: str, file_format: str, model: str | None = None) -> List[RiskFinding]:
+    def classify(
+        self,
+        *,
+        screenshot: bytes,
+        view_number: int,
+        file_name: str,
+        file_format: str,
+        model: str | None = None,
+    ) -> List[RiskFinding]:
         pass

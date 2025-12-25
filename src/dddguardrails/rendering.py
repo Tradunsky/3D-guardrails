@@ -61,170 +61,115 @@ def _spherical_to_cartesian(distance: float, azimuth: float, elevation: float) -
     return np.array([x, y, z])
 
 
-def _render(
-    file_path: str    
-) -> List[bytes]:
+def render_views_generator(
+    contents: bytes,
+    extension: str,
+) -> Generator[bytes, None, None]:
     """
-    Worker function to render the scene in a separate process.
-    Loads mesh from file path to ensure a clean OpenGL context and avoid pickling issues.
-    """
-    # Import settings and create logger inside worker to avoid pickling module-level state    
-    
-    log.info("Worker process started, loading mesh from %s", file_path)
+    Generator that yields screenshots one by one from 3D asset bytes.
+    """    
+    start_time = time.perf_counter()
+    log.info("Starting rendering generator | extension=%s", extension)
     
     config = RenderConfig(
         resolution=settings.screenshot_resolution,
         distance=settings.camera_distance,
         view_angles=settings.multi_view_angles,
     )
-    # Load mesh with materials directly in worker process
-    loaded = trimesh.load(file_path, skip_materials=False)
-    log.info("Mesh loaded successfully, type: %s", type(loaded).__name__)
     
+    # Load mesh from bytes    
+    file_obj = io.BytesIO(contents)    
+    loaded = trimesh.load(file_obj, file_type=extension, skip_materials=False)
+    trimesh_total_ms = (time.perf_counter() - start_time) * 1000
+    log.info("Mesh loaded successfully, type: %s | time=%f ms", type(loaded).__name__, trimesh_total_ms)
+    start_time = time.perf_counter()
+
     # Convert to pyrender meshes
     if isinstance(loaded, trimesh.Scene):
-        # For scenes, we need to convert each geometry with its materials
         meshes_to_render = []
         for name, geom in loaded.geometry.items():
             if isinstance(geom, trimesh.Trimesh) and not geom.is_empty:
-                # Use smooth=False to preserve textures and original appearance
                 pr_mesh = pyrender.Mesh.from_trimesh(geom, smooth=False)
                 meshes_to_render.append(pr_mesh)
     else:
-        # Single mesh
         meshes_to_render = [pyrender.Mesh.from_trimesh(loaded, smooth=False)]
     
+    if not meshes_to_render:
+        raise AssetProcessingError("No valid geometry found in the uploaded asset.")
+
     log.info("Created %d pyrender meshes", len(meshes_to_render))
     
-    # Scene with darker background and lower ambient light for better contrast
     scene = pyrender.Scene(bg_color=[0.05, 0.05, 0.05, 1.0], ambient_light=[0.3, 0.3, 0.3])
-    
-    # Add all meshes to scene
     for pr_mesh in meshes_to_render:
         scene.add(pr_mesh)
     
-    # Calculate bounding box for all meshes
-    if isinstance(loaded, trimesh.Scene):
-        bounds = loaded.bounds
-    else:
-        bounds = loaded.bounds
+    bounds = loaded.bounds
     center = bounds.mean(axis=0)
     extent = bounds[1] - bounds[0]
     radius = np.linalg.norm(extent) / 2.0
     
-    # Setup Camera
     camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0, aspectRatio=1.0)
     camera_node = pyrender.Node(camera=camera, matrix=np.eye(4))
     scene.add_node(camera_node)
 
-     
-    # Setup Enhanced Lighting for better visual quality
-    # 1. Main Key Light (camera-aligned headlight)
     key_light = pyrender.DirectionalLight(color=[1.0, 1.0, 1.0], intensity=6.0)
-    key_light_node = pyrender.Node(light=key_light, matrix=np.eye(4))
-    scene.add_node(key_light_node)
+    scene.add_node(pyrender.Node(light=key_light, matrix=np.eye(4)))
     
-    # 2. Top-down Fill Light (softer, cooler tone)
     fill_light = pyrender.DirectionalLight(color=[0.9, 0.95, 1.0], intensity=3.5)
-    fill_node = scene.add(fill_light, pose=trimesh.transformations.rotation_matrix(-np.pi/2, [1, 0, 0]))
+    scene.add(fill_light, pose=trimesh.transformations.rotation_matrix(-np.pi/2, [1, 0, 0]))
     
-    # 3. Rim Light from the side for edge definition
     rim_light = pyrender.DirectionalLight(color=[1.0, 0.95, 0.9], intensity=2.5)
-    rim_pose = trimesh.transformations.rotation_matrix(np.pi/3, [0, 1, 0])
-    rim_node = scene.add(rim_light, pose=rim_pose)
+    scene.add(rim_light, pose=trimesh.transformations.rotation_matrix(np.pi/3, [0, 1, 0]))
     
-    # 4. Bottom Fill Light (warm tone to fill shadows)
     back_light = pyrender.DirectionalLight(color=[1.0, 0.95, 0.9], intensity=2.0)
-    back_node = scene.add(back_light, pose=trimesh.transformations.rotation_matrix(np.pi/2, [1, 0, 0]))
+    scene.add(back_light, pose=trimesh.transformations.rotation_matrix(np.pi/2, [1, 0, 0]))
     
-    
-    # Initializing renderer
     r = pyrender.OffscreenRenderer(viewport_width=config.resolution[0], viewport_height=config.resolution[1])
     
-    renders: List[bytes] = []
-    
     try:
-        # Calculate distance based on bounding sphere
-        fov = np.pi / 3.0  # match camera yfov
-        # Calculate distance to fit the bounding sphere perfectly
+        fov = np.pi / 3.0
         base_distance = radius / np.sin(fov / 2.0)
-        
-        # Apply the distance from config as a scale factor
         render_distance = base_distance * config.distance
         
-        for azimuth_deg, elevation_deg in config.view_angles:
-            # Calculate camera position
+        for idx, (azimuth_deg, elevation_deg) in enumerate(config.view_angles, start=1):
             azimuth_rad, elevation_rad, _ = _to_radians((azimuth_deg, elevation_deg, 0))
             camera_position = _spherical_to_cartesian(render_distance, azimuth_rad, elevation_rad)
-            
-            # Position camera relative to center
             camera_position = camera_position + center
             
-            # Look at center
             target = center
-            up = np.array([0, 1, 0]) # Y-up
+            up = np.array([0, 1, 0])
             f = target - camera_position
             f = f / np.linalg.norm(f)
             s = np.cross(f, up)
-            # If camera is directly above/below, s might be zero. Handle that.
             if np.linalg.norm(s) < 1e-3:
-                # Camera is looking along Z. Up vector can be Y.
                 s = np.cross(f, np.array([0, 1, 0]))
-            
             s = s / np.linalg.norm(s)
             u = np.cross(s, f)
             
-            # rotation matrix columns: s, u, -f
             R = np.eye(4)
             R[:3, 0] = s
             R[:3, 1] = u
             R[:3, 2] = -f
             
-            # Translation
             T = np.eye(4)
             T[:3, 3] = camera_position
-            
             pose = T @ R
             
-            # Update camera node pose
             scene.set_pose(camera_node, pose)
-            # Update key light node pose to match camera (headlight effect)
-            # scene.set_pose(key_light_node, pose)
             
             log.info("Rendering view %d/%d (azimuth=%d, elevation=%d)", 
-                    len(renders) + 1, len(config.view_angles), azimuth_deg, elevation_deg)
-            
-            start_time = time.time()
+                    idx, len(config.view_angles), azimuth_deg, elevation_deg)
+                        
             color, _ = r.render(scene, flags=pyrender.RenderFlags.RGBA)
             
-            # Convert to PIL and bytes
             image = Image.fromarray(color)
             with io.BytesIO() as output:
                 image.save(output, format="PNG")
-                renders.append(output.getvalue())
+                render_total_ms = (time.perf_counter() - start_time) * 1000
+                log.info("Rendered view %d in %.3f ms", idx, render_total_ms)
+                yield output.getvalue()
+            start_time = time.perf_counter()
             
-            end_time = time.time()
-            log.info("Rendered view %d/%d (azimuth=%d, elevation=%d) in %f seconds", 
-                    len(renders), len(config.view_angles), azimuth_deg, elevation_deg, end_time - start_time)
                 
     finally:
         r.delete()
-    
-    log.info("All renders complete, returning %d screenshots", len(renders))
-    return renders
-
-
-def generate_multiview_images(file_path: str) -> List[bytes]:
-    """
-    Generate renders from multiple viewpoints using pyrender in a separate process.
-    Pass file path to worker to avoid pickling issues with mesh data.
-    
-    Args:
-        file_path: Path to the 3D asset file on disk
-        config: Rendering configuration
-    
-    Returns:
-        List of PNG image bytes for each view
-    """
-    log.info("Start generating screenshots")
-    return _render(file_path)

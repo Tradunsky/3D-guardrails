@@ -16,12 +16,13 @@ class GeminiGuardrail(Guardrail):
     def classify(
         self,
         *,
-        screenshots: List[bytes],
+        screenshot: bytes,
+        view_number: int,
         file_name: str,
         file_format: str,
         model: str | None = None,
     ) -> List[RiskFinding]:
-        """Send screenshots to the LLM one by one until first violation is found."""
+        """Classify a single screenshot."""
         categories = "\n".join(f"- {name}: {desc}" for name, desc in CATEGORIES.items())
         instructions = (
             "You are a trust and safety analyst. Review this render of the 3D asset "
@@ -56,72 +57,56 @@ class GeminiGuardrail(Guardrail):
 
         model_to_use = model or self._default_model
         log.info(
-            "classifying | model=%s views=%d file=%s",
+            "classifying view %d | model=%s file=%s",
+            view_number,
             model_to_use,
-            len(screenshots),
             file_name,
         )
 
-        # Process screenshots one by one until first violation is found
-        for idx, image_bytes in enumerate(screenshots, start=1):
-            content = [
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part.from_text(text=instructions),
-                        types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
-                    ],
-                )
-            ]
+        content = [
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_text(text=instructions),
+                    types.Part.from_bytes(data=screenshot, mime_type="image/png"),
+                ],
+            )
+        ]
 
-            log.debug(
-                "checking screenshot %d/%d for file=%s",
-                idx,
-                len(screenshots),
+        response = self._client.models.generate_content(
+            model=model_to_use,
+            contents=content,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_json_schema=response_format,
+            ),
+        )
+
+        findings_list = (
+            response.parsed.get("findings", [])
+            if isinstance(response.parsed, dict)
+            else []
+        )
+
+        if findings_list:
+            log.info(
+                "found violations in screenshot %d for file=%s",
+                view_number,
                 file_name,
             )
-            response = self._client.models.generate_content(
-                model=model_to_use,
-                contents=content,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_json_schema=response_format,
-                ),
-            )
-
-            findings_list = (
-                response.parsed.get("findings", [])
-                if isinstance(response.parsed, dict)
-                else []
-            )
-
-            # Early exit if violations found
-            if findings_list:
-                log.info(
-                    "found violations in screenshot %d/%d for file=%s",
-                    idx,
-                    len(screenshots),
-                    file_name,
-                )
-                normalized: List[RiskFinding] = []
-                for finding in findings_list:
-                    category = finding.get("category", "").strip().lower()
-                    if category not in CATEGORIES:
-                        continue
-                    normalized.append(
-                        RiskFinding(
-                            category=category,
-                            severity=finding.get("severity", "none").lower(),
-                            rationale=finding.get("rationale", ""),
-                            view_number=idx,
-                        )
+            normalized: List[RiskFinding] = []
+            for finding in findings_list:
+                category = finding.get("category", "").strip().lower()
+                if category not in CATEGORIES:
+                    continue
+                normalized.append(
+                    RiskFinding(
+                        category=category,
+                        severity=finding.get("severity", "none").lower(),
+                        rationale=finding.get("rationale", ""),
+                        view_number=view_number,
                     )
-                return normalized
+                )
+            return normalized
 
-        # No violations found in any screenshot
-        log.info(
-            "no violations found for file=%s after checking %d screenshots",
-            file_name,
-            len(screenshots),
-        )
         return []

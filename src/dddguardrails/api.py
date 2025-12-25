@@ -23,7 +23,7 @@ from dddguardrails.guardrails.openai_llm import OpenAIGuardrail
 from dddguardrails.logger_config import configure_logging
 from dddguardrails.rendering import (
     AssetProcessingError,
-    generate_multiview_images,    
+    render_views_generator,    
 )
 from dddguardrails.schemas import ScanResponse
 
@@ -131,42 +131,44 @@ async def scan_asset(
         extension,
         len(contents),
     )
-
-    fd, temp_path = tempfile.mkstemp(suffix=f".{extension}")
-    try:
-        with os.fdopen(fd, "wb") as tmp:
-            tmp.write(contents)
-        tmp_path = Path(temp_path)
-
-        rendering_start_time = time.perf_counter()
-        screenshots = generate_multiview_images(str(tmp_path))
-        rendering_end_time = time.perf_counter()
-        log.debug("rendered screenshots | count=%d", len(screenshots))
-        if bool(os.getenv("3DG_DUMP_SCREENSHOTS", False)) is True:
-            for view_number, screenshot in enumerate(screenshots):
-                with open(f"screenshot-{view_number}.png", "wb") as f:
-                    f.write(screenshot)
-    finally:
-        os.unlink(temp_path)
-
-    llm_start_time = time.perf_counter()
     guard = _get_guardrail(llm_provider)
-    findings = guard.classify(
-        screenshots=screenshots,
-        file_name=file.filename or "asset",
-        file_format=extension,
-        model=model,
-    )
-    llm_end_time = time.perf_counter()
-    log.info("scan done | findings=%d", len(findings))
+    findings = []
+    views_evaluated = 0
+    
+    llm_total_ms = 0.0
+    rendering_total_ms = 0.0
+    rendering_start_timer = time.perf_counter()    
 
-    # Calculate views_evaluated as the maximum view_number from findings,
-    # or len(screenshots) if no findings (meaning all were evaluated)
-    views_evaluated = max(
-        (finding.view_number for finding in findings), default=len(screenshots)
-    )
+    for idx, screenshot in enumerate(render_views_generator(contents, extension), start=1):
+        views_evaluated = idx
+        rendering_total_ms += (time.perf_counter() - rendering_start_timer) * 1000
+            
+        # Analysis
+        llm_step_start = time.perf_counter()
+        view_findings = guard.classify(
+            screenshot=screenshot,
+            view_number=idx,
+            file_name=file.filename or "asset",
+            file_format=extension,
+            model=model,
+        )
+        llm_total_ms += (time.perf_counter() - llm_step_start) * 1000
+        rendering_start_timer = time.perf_counter()
+
+        if view_findings:
+            findings = view_findings
+            break
+                
+        # Dump screenshot if requested (for debugging)
+        if bool(os.getenv("3DG_DUMP_SCREENSHOTS", False)) is True:
+            with open(f"screenshot-{idx}.png", "wb") as f:
+                f.write(screenshot)
 
     end_time = time.perf_counter()
+    total_ms = (end_time - start_time) * 1000
+    
+    log.info("scan done | findings=%d views=%d", len(findings), views_evaluated)
+
     return ScanResponse(
         file_name=file.filename or "asset",
         file_format=extension,
@@ -176,9 +178,9 @@ async def scan_asset(
             "model": model, 
             "llm_provider": llm_provider,
             "latency": {
-                "total_ms": round((end_time - start_time) * 1000, 2),
-                "rendering_ms": round((rendering_end_time - rendering_start_time) * 1000, 2),
-                "llm_ms": round((llm_end_time - llm_start_time) * 1000, 2),
+                "total_ms": round(total_ms, 2),
+                "llm_ms": round(llm_total_ms, 2),
+                "rendering_ms": round(rendering_total_ms, 2),
             }
         },
     )

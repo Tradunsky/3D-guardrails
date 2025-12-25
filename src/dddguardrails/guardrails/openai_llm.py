@@ -26,12 +26,13 @@ class OpenAIGuardrail(Guardrail):
     def classify(
         self,
         *,
-        screenshots: List[bytes],
+        screenshot: bytes,
+        view_number: int,
         file_name: str,
         file_format: str,
         model: str | None = None,
     ) -> List[RiskFinding]:
-        """Send screenshots to the LLM one by one until first violation is found."""
+        """Classify a single screenshot."""
         categories = "\n".join(f"- {name}: {desc}" for name, desc in CATEGORIES.items())
         instructions = (
             "You are a trust and safety analyst. Review this render of the 3D asset "
@@ -45,105 +46,89 @@ class OpenAIGuardrail(Guardrail):
 
         model_to_use = model or self._default_model
         log.info(
-            "classifying | model=%s views=%d file=%s",
+            "classifying view %d | model=%s file=%s",
+            view_number,
             model_to_use,
-            len(screenshots),
             file_name,
         )
 
-        # Process screenshots one by one until first violation is found
-        for idx, image_bytes in enumerate(screenshots, start=1):
-            b64 = base64.b64encode(image_bytes).decode("ascii")
-            content = [
-                {
-                    "type": "input_text",
-                    "text": instructions,
-                },
-                {
-                    "type": "input_image",
-                    "image_url": f"data:image/png;base64,{b64}",
-                    "detail": "high",
-                },
-            ]
+        b64 = base64.b64encode(screenshot).decode("ascii")
+        content = [
+            {
+                "type": "input_text",
+                "text": instructions,
+            },
+            {
+                "type": "input_image",
+                "image_url": f"data:image/png;base64,{b64}",
+                "detail": "high",
+            },
+        ]
 
-            log.debug(
-                "checking screenshot %d/%d for file=%s",
-                idx,
-                len(screenshots),
-                file_name,
-            )
-            response = self._client.responses.create(
-                model=model_to_use,
-                input=[{"role": "user", "content": content}],
-                instructions=instructions,
-                text={
-                    "format": {
-                        "type": "json_schema",
-                        "name": "risk_findings",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "findings": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "category": {"type": "string"},
-                                            "severity": {"type": "string"},
-                                            "rationale": {"type": "string"},
-                                        },
-                                        "required": [
-                                            "category",
-                                            "severity",
-                                            "rationale",
-                                        ],
-                                        "additionalProperties": False,
+        response = self._client.responses.create(
+            model=model_to_use,
+            input=[{"role": "user", "content": content}],
+            instructions=instructions,
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "risk_findings",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "findings": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "category": {"type": "string"},
+                                        "severity": {"type": "string"},
+                                        "rationale": {"type": "string"},
                                     },
+                                    "required": [
+                                        "category",
+                                        "severity",
+                                        "rationale",
+                                    ],
+                                    "additionalProperties": False,
                                 },
                             },
-                            "required": ["findings"],
-                            "additionalProperties": False,
                         },
-                    }
-                },
-            )
-            output_text = response.output[0].content[0].text if response.output else ""
-            try:
-                parsed = json.loads(output_text)
-            except json.JSONDecodeError as exc:  # pragma: no cover - runtime guard.
-                raise RuntimeError("LLM returned an unreadable payload.") from exc
-            # Extract the findings array from the response object
-            findings_list = (
-                parsed.get("findings", []) if isinstance(parsed, dict) else []
-            )
-
-            # Early exit if violations found
-            if findings_list:
-                log.info(
-                    "found violations in screenshot %d/%d for file=%s",
-                    idx,
-                    len(screenshots),
-                    file_name,
-                )
-                normalized: List[RiskFinding] = []
-                for finding in findings_list:
-                    category = finding.get("category", "").strip().lower()
-                    if category not in CATEGORIES:
-                        continue
-                    normalized.append(
-                        RiskFinding(
-                            category=category,
-                            severity=finding.get("severity", "none").lower(),
-                            rationale=finding.get("rationale", ""),
-                            view_number=idx,
-                        )
-                    )
-                return normalized
-
-        # No violations found in any screenshot
-        log.info(
-            "no violations found for file=%s after checking %d screenshots",
-            file_name,
-            len(screenshots),
+                        "required": ["findings"],
+                        "additionalProperties": False,
+                    },
+                }
+            },
         )
+        output_text = response.output[0].content[0].text if response.output else ""
+        try:
+            parsed = json.loads(output_text)
+        except json.JSONDecodeError as exc:  # pragma: no cover - runtime guard.
+            raise RuntimeError("LLM returned an unreadable payload.") from exc
+        
+        findings_list = (
+            parsed.get("findings", []) if isinstance(parsed, dict) else []
+        )
+
+        if findings_list:
+            log.info(
+                "found violations in screenshot %d for file=%s",
+                view_number,
+                file_name,
+            )
+            normalized: List[RiskFinding] = []
+            for finding in findings_list:
+                category = finding.get("category", "").strip().lower()
+                if category not in CATEGORIES:
+                    continue
+                normalized.append(
+                    RiskFinding(
+                        category=category,
+                        severity=finding.get("severity", "none").lower(),
+                        rationale=finding.get("rationale", ""),
+                        view_number=view_number,
+                    )
+                )
+            return normalized
+
         return []
