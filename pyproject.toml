@@ -39,4 +39,6 @@ default = true
 
 # Replace vtk with vtk-egl for headless EGL rendering in Docker
 [tool.uv]
-override-dependencies = ["vtk-egl>=9.3.20240907.dev0"]
+override-dependencies = [
+    "vtk==v9.5.2; sys_platform == 'never'",
+]
