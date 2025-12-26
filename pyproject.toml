@@ -36,3 +36,7 @@ markers = [
 [[tool.uv.index]]
 url = "https://gitlab.kitware.com/api/v4/projects/13/packages/pypi/simple"
 default = true
+
+# Replace vtk with vtk-egl for headless EGL rendering in Docker
+[tool.uv]
+override-dependencies = ["vtk-egl>=9.3.20240907.dev0"]

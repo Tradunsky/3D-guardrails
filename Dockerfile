@@ -16,12 +16,10 @@ ENV UV_COMPILE_BYTECODE=1 \
 # Copy project files needed for dependency installation
 COPY pyproject.toml uv.lock README.md ./
 
-# Export dependencies (excluding project itself) and install to system Python
-# Reinstall vtk-egl last to overwrite conflicting vtk shared libraries
+# Sync dependencies to system Python using pyproject.toml overrides for vtk-egl
 RUN --mount=type=cache,target=/root/.cache \
     uv export --frozen --no-hashes --no-dev --no-emit-project | \
-    uv pip install --system -r - && \
-    uv pip install --system --reinstall vtk-egl
+    uv pip install --system -r -
 
 # ============================================
 # Stage 2: Runtime - Minimal production image

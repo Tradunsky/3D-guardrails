@@ -2,6 +2,9 @@ version = 1
 revision = 3
 requires-python = "==3.11.*"
 
+[manifest]
+overrides = [{ name = "vtk-egl", specifier = ">=9.3.20240907.dev0" }]
+
 [[package]]
 name = "aiofiles"
 version = "24.1.0"
