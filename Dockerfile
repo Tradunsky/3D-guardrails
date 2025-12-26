@@ -1,5 +1,8 @@
 FROM python:3.11-slim
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 # Prevent Python from writing pyc files and buffering stdout
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -9,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libegl1 \
     libosmesa6 \
+    libglu1-mesa \
     xvfb \
     git \
     && rm -rf /var/lib/apt/lists/*
@@ -16,22 +20,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set the working directory
 WORKDIR /app
 
-# Copy dependency files
-COPY requirements.txt .
+# Enable bytecode compilation
+ENV UV_COMPILE_BYTECODE=1
 
-# Install Python dependencies
-# Standard install as wheels should work with system libs installed
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy project files needed for dependency installation
+COPY pyproject.toml uv.lock README.md ./
+
+# Install dependencies into the system environment
+# We export from the lockfile to ensure reproducible builds
+RUN user_requirements=$(uv export --frozen --no-emit-project --format=requirements-txt) && \
+    echo "$user_requirements" > requirements.txt && \
+    uv pip install --system -r requirements.txt
 
 # Copy the source code
-COPY src/ .
 COPY . .
+
+# Install the project itself into the system environment
+RUN uv pip install --system --no-deps -e .
 
 # Expose ports
 # 8000 for API, 7860 for Gradio
 EXPOSE 8000 7860
 
-COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
 # Default command uses entrypoint logic

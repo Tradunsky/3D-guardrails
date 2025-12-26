@@ -1,9 +1,6 @@
 services:
   app:
     build: .
-    ports:
-      - "8000:8000"
-      - "7860:7860"
     environment:
       - RUN_MODE=${RUN_MODE:-gradio}
       - 3DG_DUMP_SCREENSHOTS=True
@@ -23,4 +20,4 @@ services:
             - .eggs
             - .cache
         - action: rebuild
-          path: requirements.txt Dockerfile docker-compose.yaml
+          path: pyproject.toml uv.lock Dockerfile docker-compose.yaml
