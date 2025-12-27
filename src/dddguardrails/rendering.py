@@ -12,6 +12,7 @@ import pyvista as pv
 import numpy as np
 import trimesh
 import logging
+from PIL import Image
 from dddguardrails.config import settings    
 
 log = logging.getLogger(__name__)
@@ -121,14 +122,20 @@ def render_views_generator(
         pl.camera_position = [pos, center, (0.0, 1.0, 0.0)]
         pl.camera.view_angle = 60
         pl.render()
-        img = pl.screenshot(None, return_img=True)
-        img = img.tobytes()
+        img_array = pl.screenshot(None, return_img=True)
+        
+        # Convert to PNG bytes
+        img_pil = Image.fromarray(img_array)
+        with io.BytesIO() as bio:
+            img_pil.save(bio, format="PNG")
+            img_bytes = bio.getvalue()
+
         render_total_ms = (time.perf_counter() - start_time) * 1000
         log.info("Rendered view %d in %.3f ms", idx, render_total_ms)
-        yield img
+        yield img_bytes
         start_time = time.perf_counter()
 
-        if os.getenv("DEBUG"): Image.fromarray(img).save(f"pyvista_view_{idx}.png")
+        if os.getenv("DEBUG"): Image.fromarray(img_array).save(f"pyvista_view_{idx}.png")
     
     pl.close()
     
