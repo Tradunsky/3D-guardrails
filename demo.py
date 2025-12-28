@@ -33,7 +33,7 @@ async def scan_3d_asset(
     res_w: int,
     res_h: int,
     risk_cats_df: pd.DataFrame,
-) -> Tuple[pd.DataFrame, str]:
+) -> Tuple[pd.DataFrame, str, pd.DataFrame]:
     """
     Scan a 3D asset using the 3D Guardrails business logic directly.
 
@@ -51,7 +51,9 @@ async def scan_3d_asset(
     if file_path is None:
         return pd.DataFrame(
             columns=["Category", "Severity", "Rationale", "View Number"]
-        ), "Please upload a 3D file to scan."
+        ), "Please upload a 3D file to scan.", pd.DataFrame(
+            columns=[" ", "Legend", "ms"]
+        )
 
     try:
         # Convert risk categories dataframe to list of RiskCategory for the API

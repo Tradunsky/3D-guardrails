@@ -142,7 +142,7 @@ For guidance on writing effective tests, see: [Testing on the Toilet: Change-Det
 - [ ] Batch API
 - [ ] Async API
 - [ ] Streaming API
-- [ ] Reading content from URLs (presigned URL, internet content, ect)
+- [x] Reading content from URLs (presigned URL, internet content, ect)
 - [ ] Backwards compatible API with OpenAI and AWS Bedrock Guardrails
 - [ ] Configurable early exit (based on severity of findings?)
 - [ ] Parallelize scanning when violation is not detected on a first view

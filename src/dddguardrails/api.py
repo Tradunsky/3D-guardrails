@@ -7,6 +7,7 @@ import os
 import time
 import tempfile
 import json
+import httpx
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -14,6 +15,7 @@ import ollama
 import uvicorn
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import JSONResponse
+
 from google.genai.errors import ClientError
 from pydantic import Json
 
@@ -84,6 +86,17 @@ def _normalize_extension(filename: str | None) -> str:
         return ""
     return Path(filename).suffix.lower().lstrip(".")
 
+async def _download_asset_from(url: str) -> bytes:
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, follow_redirects=True)
+            resp.raise_for_status()
+            return resp.content
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to download asset from URL: {str(e)}"
+        )
 
 @app.exception_handler(AssetProcessingError)
 def asset_processing_error(request: Request, exc: AssetProcessingError):
@@ -112,7 +125,8 @@ def ollama_response_error(request: Request, exc: ollama.ResponseError):
     status_code=status.HTTP_200_OK,
 )
 async def scan_asset(
-    file: UploadFile = File(..., description="3D asset in GLB/FBX/OBJ/STL/PLY format"),
+    file: UploadFile | None = File(None, description="3D asset in GLB/FBX/OBJ/STL/PLY format"),
+    url: str | None = Form(None, description="URL of the 3D asset to scan"),
     llm_provider: str = Form(
         "ollama",
         description="LLM provider to use for analysis (openai, gemini, ollama)",
@@ -132,8 +146,24 @@ async def scan_asset(
     ),
 ) -> ScanResponse:
     start_time = time.perf_counter()
-    extension = _normalize_extension(file.filename)
-    file_name = file.filename or "asset"
+    total_download_ms = 0.0
+    
+    if file:
+        extension = _normalize_extension(file.filename)
+        file_name = file.filename or "asset"
+        contents = await file.read()
+    elif url:
+        # Download from URL
+        file_name = url.split("/")[-1].split("?")[0] or "asset"
+        extension = _normalize_extension(file_name)
+        contents = await _download_asset_from(url)
+        total_download_ms = (time.perf_counter() - start_time) * 1000
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either 'file' or 'url' must be provided."
+        )
+
     if extension not in settings.supported_formats:
         supported_formats_csv = ", ".join(settings.supported_formats)
         raise HTTPException(
@@ -141,10 +171,9 @@ async def scan_asset(
             detail=f"Unsupported file format '{extension}'. Supported: {supported_formats_csv}",
         )
 
-    contents = await file.read()
     if not contents:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Asset content is empty."
         )
     log.info("scan start | name=%s ext=%s bytes=%d", file_name, extension, len(contents))
     
@@ -201,6 +230,7 @@ async def scan_asset(
             "llm_provider": llm_provider,
             "latency": {
                 "total_ms": round(total_ms, 2),
+                "download_ms": round(total_download_ms, 2),
                 "llm_ms": round(llm_total_ms, 2),
                 "rendering_ms": round(rendering_total_ms, 2),
             }
