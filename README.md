@@ -23,6 +23,13 @@ Run the FastAPI server to scan 3D assets for trust-and-safety risks.
 
 ![Example](./.docs/images/weapons.png)
 
+### 3D Rendering Benchmark
+
+The most expensive part is not 3D rendering, but the LLM analysis. Here is a benchmark of the 3D rendering part running on a CPU:
+
+![3D rendering benchmark](./3d_benchmark/benchmark_results.png)
+
+
 ### Prerequisites
 
 - Python 3.11
@@ -122,7 +129,8 @@ For guidance on writing effective tests, see: [Testing on the Toilet: Change-Det
 - [x] User specified provider and models support
 - [x] Early exit on the first violation (save tokens)
 - [x] Docker/docker-compose support with headless rendering
-- [ ] Benchmark
+- [x] Improve rendering performance
+- [x] Benchmark
 - [ ] Evals
 - [x] Gradio demo
 - [ ] AWS Bedrock support
