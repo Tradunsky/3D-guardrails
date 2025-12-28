@@ -19,7 +19,7 @@ dependencies = [
     "gradio[mcp]>=4.0.0",
     "scipy==1.15.3",
     "pyvista>=0.46.4",
-    "vtk-egl>=9.3.20240907.dev0",
+    "vtk==9.3.20240907.dev0",
     "pandas>=2.3.3",
 ]
 
@@ -34,11 +34,12 @@ markers = [
 ]
 
 [[tool.uv.index]]
+name = "kitware"
 url = "https://gitlab.kitware.com/api/v4/projects/13/packages/pypi/simple"
-default = true
+# Not default, but vtk will be forced to the version only found here
 
-# Replace vtk with vtk-egl for headless EGL rendering in Docker
 [tool.uv]
+managed = true
 override-dependencies = [
-    "vtk==v9.5.2; sys_platform == 'never'",
+    "vtk==9.3.20240907.dev0",
 ]

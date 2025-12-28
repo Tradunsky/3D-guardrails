@@ -3,7 +3,7 @@ revision = 3
 requires-python = "==3.11.*"
 
 [manifest]
-overrides = [{ name = "vtk", marker = "sys_platform == 'never'", specifier = "==9.5.2" }]
+overrides = [{ name = "vtk", specifier = "==9.3.20240907.dev0" }]
 
 [[package]]
 name = "aiofiles"
@@ -263,7 +263,7 @@ dependencies = [
     { name = "pyvista" },
     { name = "scipy" },
     { name = "trimesh" },
-    { name = "vtk-egl" },
+    { name = "vtk" },
 ]
 
 [package.metadata]
@@ -283,7 +283,7 @@ requires-dist = [
     { name = "pyvista", specifier = ">=0.46.4" },
     { name = "scipy", specifier = "==1.15.3" },
     { name = "trimesh", specifier = ">=4.4.3" },
-    { name = "vtk-egl", specifier = ">=9.3.20240907.dev0" },
+    { name = "vtk", specifier = "==9.3.20240907.dev0" },
 ]
 
 [[package]]
@@ -1252,7 +1252,7 @@ dependencies = [
     { name = "pooch" },
     { name = "scooby" },
     { name = "typing-extensions" },
-    { name = "vtk", marker = "sys_platform == 'never'" },
+    { name = "vtk" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/03/3f/701daab844e6f0570d02931b3e4b0b7e04b38f97b9c95d12403645445b23/pyvista-0.46.4.tar.gz", hash = "sha256:37ddd2783a45b552623df293e77ce93ed015244e8d89d1de179d2df594d7c571", size = 2398029, upload-time = "2025-10-30T15:24:13.144Z" }
 wheels = [
@@ -1689,21 +1689,16 @@ wheels = [
 
 [[package]]
 name = "vtk"
-version = "9.5.2"
-source = { registry = "https://gitlab.kitware.com/api/v4/projects/13/packages/pypi/simple" }
-dependencies = [
-    { name = "matplotlib" },
-]
-
-[[package]]
-name = "vtk-egl"
 version = "9.3.20240907.dev0"
 source = { registry = "https://gitlab.kitware.com/api/v4/projects/13/packages/pypi/simple" }
 dependencies = [
     { name = "matplotlib" },
 ]
 wheels = [
-    { url = "https://gitlab.kitware.com/api/v4/projects/13/packages/pypi/files/27ee660ca039bdb808cc6012a40c98fc98837790933418eef32f0b452b040b7a/vtk_egl-9.3.20240907.dev0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:27ee660ca039bdb808cc6012a40c98fc98837790933418eef32f0b452b040b7a" },
+    { url = "https://gitlab.kitware.com/api/v4/projects/13/packages/pypi/files/461b668b816c298706fe0eaf73bdd34e61a5a44931fb5d979398a40ba34851f3/vtk-9.3.20240907.dev0-cp311-cp311-macosx_10_10_x86_64.whl", hash = "sha256:461b668b816c298706fe0eaf73bdd34e61a5a44931fb5d979398a40ba34851f3" },
+    { url = "https://gitlab.kitware.com/api/v4/projects/13/packages/pypi/files/03c08fd660ff63816ee78ced39ec6a294baffc625430cfaee24f8970de37d884/vtk-9.3.20240907.dev0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:03c08fd660ff63816ee78ced39ec6a294baffc625430cfaee24f8970de37d884" },
+    { url = "https://gitlab.kitware.com/api/v4/projects/13/packages/pypi/files/61becdfc8fc83c157ff6a61676985603e6d87816f54f882241f09916b83d761b/vtk-9.3.20240907.dev0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:61becdfc8fc83c157ff6a61676985603e6d87816f54f882241f09916b83d761b" },
+    { url = "https://gitlab.kitware.com/api/v4/projects/13/packages/pypi/files/8d6fb51c3469bc5dabcb3bb839bfd3aff8d17045d7d9b99bee5f91c86d35477f/vtk-9.3.20240907.dev0-cp311-cp311-win_amd64.whl", hash = "sha256:8d6fb51c3469bc5dabcb3bb839bfd3aff8d17045d7d9b99bee5f91c86d35477f" },
 ]
 
 [[package]]
