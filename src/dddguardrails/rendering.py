@@ -86,7 +86,7 @@ def render_views_generator(
     
     # LOADING
     file_obj = io.BytesIO(contents)
-    loaded = trimesh.load(file_obj, file_type='glb', skip_materials=False)
+    loaded = trimesh.load(file_obj, file_type=extension, skip_materials=False)
     trimesh_total_ms = (time.perf_counter() - start_total) * 1000
     log.info("Mesh loaded successfully, type: %s | time=%f ms", type(loaded).__name__, trimesh_total_ms)
     start_time = time.perf_counter()

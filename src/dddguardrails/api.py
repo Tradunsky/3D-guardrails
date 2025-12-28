@@ -119,8 +119,8 @@ async def scan_asset(
     resolution_height: int = Form(
         settings.screenshot_resolution[1], description="Resolution height for rendering"
     ),
-    risk_categories: Json[list[RiskCategory]] | None = Form(
-        CATEGORIES, description="JSON string of RiskCategory objects"
+    risk_categories: list[RiskCategory] | None = Form(
+        None, description="JSON string of RiskCategory objects"
     ),
 ) -> ScanResponse:
     start_time = time.perf_counter()
@@ -140,8 +140,8 @@ async def scan_asset(
         )
     log.info("scan start | name=%s ext=%s bytes=%d", file_name, extension, len(contents))
     
-    # Use provided risk categories or default
-    parsed_categories = risk_categories if risk_categories is not None else CATEGORIES
+    if risk_categories is None:
+        risk_categories = CATEGORIES    
 
     resolution = (resolution_width, resolution_height) or settings.screenshot_resolution
 
@@ -163,7 +163,7 @@ async def scan_asset(
             view_number=idx,
             file_name=file_name,
             file_format=extension,
-            risk_categories=parsed_categories,
+            risk_categories=risk_categories,
             model=model,            
         )
         llm_total_ms += (time.perf_counter() - llm_step_start) * 1000
