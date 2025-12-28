@@ -4,6 +4,7 @@
 import sys
 import os
 import time
+import json
 
 import pandas as pd
 from io import BytesIO
@@ -19,13 +20,19 @@ import pandas as pd
 from fastapi import UploadFile
 
 from dddguardrails.api import scan_asset
-from dddguardrails.schemas import ScanResponse
+from dddguardrails.schemas import ScanResponse, CATEGORIES, RiskCategory
+from dddguardrails.config import settings
 
 log = getLogger(__name__)
 
 
 async def scan_3d_asset(
-    file_path: Optional[str], llm_provider: str, model: str
+    file_path: Optional[str], 
+    llm_provider: str, 
+    model: str,
+    res_w: int,
+    res_h: int,
+    risk_cats_df: pd.DataFrame,
 ) -> Tuple[pd.DataFrame, str]:
     """
     Scan a 3D asset using the 3D Guardrails business logic directly.
@@ -34,6 +41,9 @@ async def scan_3d_asset(
         file_path: The uploaded 3D file path
         llm_provider: LLM provider to use ('openai', 'gemini', 'ollama')
         model: Specific model to use
+        res_w: Resolution width
+        res_h: Resolution height
+        risk_cats_df: DataFrame with custom risk categories
 
     Returns:
         DataFrame with findings and status message
@@ -44,6 +54,12 @@ async def scan_3d_asset(
         ), "Please upload a 3D file to scan."
 
     try:
+        # Convert risk categories dataframe to list of RiskCategory for the API
+        risk_cats = []
+        for _, row in risk_cats_df.iterrows():
+            if row["name"] and row["description"]:
+                risk_cats.append(RiskCategory(name=str(row["name"]), description=str(row["description"])))
+
         with open(file_path, mode="rb") as f:
             upload_file = UploadFile(
                 file=BytesIO(f.read()), filename=Path(file_path).name
@@ -53,6 +69,9 @@ async def scan_3d_asset(
             file=upload_file,
             llm_provider=llm_provider,
             model=model.strip() if model and model.strip() else None,
+            resolution_width=res_w,
+            resolution_height=res_h,
+            risk_categories=risk_cats if risk_cats else None,
         )        
 
         # Process findings for display
@@ -104,7 +123,9 @@ async def scan_3d_asset(
         log.error("❌ Error: ", e, exc_info=True)
         return pd.DataFrame(
             columns=["Category", "Severity", "Rationale", "View Number"]
-        ), f"❌ Error: {str(e)}"
+        ), f"❌ Error: {str(e)}", pd.DataFrame(
+            columns=[" ", "Legend", "ms"]
+        )
 
 
 dataset_dir = Path(__file__).parent / "tests/data"
@@ -137,6 +158,28 @@ demo = gr.Interface(
             ],
             info="Leave empty to use the provider's default model",
             allow_custom_value=True,
+        ),
+        gr.Slider(
+            label="Resolution Width (reduce for faster processing)",
+            minimum=64,
+            maximum=2048,
+            step=64,
+            value=settings.screenshot_resolution[0],
+        ),
+        gr.Slider(
+            label="Resolution Height (reduce for faster processing)",
+            minimum=64,
+            maximum=2048,
+            step=64,
+            value=settings.screenshot_resolution[1],
+        ),
+        gr.Dataframe(
+            label="Risk Categories (edit, add or remove rows)",
+            headers=["name", "description"],
+            datatype=["str", "str"],
+            value=[[c.name, c.description] for c in CATEGORIES],
+            column_count=(2, "fixed"),
+            interactive=True,
         )
     ],
     outputs=[
@@ -160,8 +203,15 @@ demo = gr.Interface(
     description="Scan 3D assets for trust and safety risks using multimodal AI with MCP (Model Context Protocol) enabled. Supported formats: GLB, GLTF, FBX, OBJ, STL, PLY. Risk categories: Weapons, Nudity, Self-harm, Extremism, Hate symbols, Misleading content.\n Github: https://github.com/Tradunsky/3D-guardrails",
     analytics_enabled=False,
     examples=[
-        [str(dataset_dir / file), "gemini", "gemini-3-flash-preview"]
-        for file in os.listdir(dataset_dir)
+        [
+            str(dataset_dir / file), 
+            "gemini", 
+            "gemini-3-flash-preview", 
+            settings.screenshot_resolution[0], 
+            settings.screenshot_resolution[1], 
+            [[c.name, c.description] for c in CATEGORIES]
+        ]
+        for file in os.listdir(dataset_dir) if (dataset_dir / file).is_file()
     ],
     cache_examples=False,
     cache_mode="lazy",

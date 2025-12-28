@@ -80,6 +80,7 @@ BG_COLOR = [0.05, 0.05, 0.05, 1.0]
 def render_views_generator(
     contents: bytes,
     extension: str,
+    resolution: Tuple[int, int],
 ) -> Generator[bytes, None, None]:
     start_total = time.perf_counter()
     
@@ -93,7 +94,7 @@ def render_views_generator(
     cam_positions = _get_camera_positions(center, radius)
     
 
-    pl = pv.Plotter(off_screen=True, window_size=resolution or settings.screenshot_resolution, lighting=None)
+    pl = pv.Plotter(off_screen=True, window_size=resolution, lighting=None)
     try:
         if isinstance(loaded, trimesh.Scene):
             for name, g in loaded.geometry.items():

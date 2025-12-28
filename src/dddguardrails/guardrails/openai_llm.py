@@ -10,7 +10,8 @@ from typing import List
 from openai import OpenAI
 
 from dddguardrails.config import settings
-from dddguardrails.guardrail import Guardrail, RiskFinding, CATEGORIES
+from dddguardrails.guardrail import Guardrail
+from dddguardrails.schemas import RiskFinding, CATEGORIES, RiskCategory
 
 
 log = logging.getLogger("dddguardrails.llm")
@@ -30,16 +31,19 @@ class OpenAIGuardrail(Guardrail):
         view_number: int,
         file_name: str,
         file_format: str,
+        risk_categories: List[RiskCategory],
         model: str | None = None,
     ) -> List[RiskFinding]:
         """Classify a single screenshot."""
-        categories = "\n".join(f"- {name}: {desc}" for name, desc in CATEGORIES.items())
+        cat_names = {c.name.lower() for c in risk_categories}
+        
+        categories_text = "\n".join(f"- {c.name.lower()}: {c.description}" for c in risk_categories)
         instructions = (
             "You are a trust and safety analyst. Review this render of the 3D asset "
             f"named '{file_name}' ({file_format}) and flag any category that could undermine "
             "user trust. Only use the allowed categories and respond with a JSON object containing a 'findings' array."
             f"Allowed categories:\n"
-            f"{categories}"
+            f"{categories_text}"
             "\n\nSeverity must be one of: none, low, medium, high."
             "\n If a category is not present, omit it from the list."
         )
@@ -119,7 +123,7 @@ class OpenAIGuardrail(Guardrail):
             normalized: List[RiskFinding] = []
             for finding in findings_list:
                 category = finding.get("category", "").strip().lower()
-                if category not in CATEGORIES:
+                if category not in cat_names:
                     continue
                 normalized.append(
                     RiskFinding(

@@ -6,14 +6,16 @@ import logging
 import os
 import time
 import tempfile
+import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import ollama
 import uvicorn
-from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 from google.genai.errors import ClientError
+from pydantic import Json
 
 from dddguardrails.config import settings
 from dddguardrails.guardrail import Guardrail
@@ -25,7 +27,8 @@ from dddguardrails.rendering import (
     AssetProcessingError,
     render_views_generator,    
 )
-from dddguardrails.schemas import ScanResponse
+
+from dddguardrails.schemas import RiskCategory, CATEGORIES, ScanResponse
 
 configure_logging()
 log = logging.getLogger("dddguardrails.api")
@@ -102,17 +105,27 @@ def ollama_response_error(request: Request, exc: ollama.ResponseError):
 )
 async def scan_asset(
     file: UploadFile = File(..., description="3D asset in GLB/FBX/OBJ/STL/PLY format"),
-    llm_provider: str = Query(
+    llm_provider: str = Form(
         "ollama",
         description="LLM provider to use for analysis (openai, gemini, ollama)",
     ),
-    model: str | None = Query(
+    model: str | None = Form(
         "qwen3-vl:235b-cloud",
         description="Specific model to use (optional, uses default if not specified)",
+    ),
+    resolution_width: int = Form(
+        settings.screenshot_resolution[0], description="Resolution width for rendering"
+    ),
+    resolution_height: int = Form(
+        settings.screenshot_resolution[1], description="Resolution height for rendering"
+    ),
+    risk_categories: Json[list[RiskCategory]] | None = Form(
+        CATEGORIES, description="JSON string of RiskCategory objects"
     ),
 ) -> ScanResponse:
     start_time = time.perf_counter()
     extension = _normalize_extension(file.filename)
+    file_name = file.filename or "asset"
     if extension not in settings.supported_formats:
         supported_formats_csv = ", ".join(settings.supported_formats)
         raise HTTPException(
@@ -125,12 +138,13 @@ async def scan_asset(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty."
         )
-    log.info(
-        "scan start | name=%s ext=%s bytes=%d",
-        file.filename or "asset",
-        extension,
-        len(contents),
-    )
+    log.info("scan start | name=%s ext=%s bytes=%d", file_name, extension, len(contents))
+    
+    # Use provided risk categories or default
+    parsed_categories = risk_categories if risk_categories is not None else CATEGORIES
+
+    resolution = (resolution_width, resolution_height) or settings.screenshot_resolution
+
     guard = _get_guardrail(llm_provider)
     findings = []
     views_evaluated = 0
@@ -139,30 +153,30 @@ async def scan_asset(
     rendering_total_ms = 0.0
     rendering_start_timer = time.perf_counter()    
 
-    for idx, screenshot in enumerate(render_views_generator(contents, extension), start=1):
+    for idx, screenshot in enumerate(render_views_generator(contents, extension, resolution), start=1):
         views_evaluated = idx
         rendering_total_ms += (time.perf_counter() - rendering_start_timer) * 1000
             
-        # Analysis
         llm_step_start = time.perf_counter()
         view_findings = guard.classify(
             screenshot=screenshot,
             view_number=idx,
-            file_name=file.filename or "asset",
+            file_name=file_name,
             file_format=extension,
-            model=model,
+            risk_categories=parsed_categories,
+            model=model,            
         )
         llm_total_ms += (time.perf_counter() - llm_step_start) * 1000
         rendering_start_timer = time.perf_counter()
 
+        # Dump screenshot if requested (for debugging)
+        if os.getenv("DDDG_DUMP_SCREENSHOTS") == "True":
+            with open(f"screenshot-{idx}.png", "wb") as f:
+                f.write(screenshot)
+
         if view_findings:
             findings = view_findings
             break
-                
-        # Dump screenshot if requested (for debugging)
-        if bool(os.getenv("3DG_DUMP_SCREENSHOTS", False)) is True:
-            with open(f"screenshot-{idx}.png", "wb") as f:
-                f.write(screenshot)
 
     end_time = time.perf_counter()
     total_ms = (end_time - start_time) * 1000
@@ -170,7 +184,7 @@ async def scan_asset(
     log.info("scan done | findings=%d views=%d", len(findings), views_evaluated)
 
     return ScanResponse(
-        file_name=file.filename or "asset",
+        file_name=file_name,
         file_format=extension,
         findings=findings,
         metadata={

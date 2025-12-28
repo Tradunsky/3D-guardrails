@@ -113,13 +113,15 @@ For guidance on writing effective tests, see: [Testing on the Toilet: Change-Det
 ### Endpoint
 
 - `POST /v1/guardrails/scan`
-  - Body: multipart form with file field named `file`
-  - Query parameter: `llm_provider` (optional, default: "gemini")
-    - Supported values: "openai", "gemini", "ollama"
-  - Query parameter: `model` (optional, uses provider default if not specified)
-    - Examples: "gpt-4o", "gemini-pro", "llama3.2-vision"
-  - Accepts `.glb`, `.gltf`, `.fbx`, `.obj`, `.stl`, `.ply`
-  - Returns detected categories with severity and rationale after multi-view screenshotting plus multimodal LLM analysis.
+  - Request format: `multipart/form-data`
+  - Form Fields:
+    - `file`: The 3D asset file. Accepts `.glb`, `.gltf`, `.fbx`, `.obj`, `.stl`, `.ply`.
+    - `llm_provider`: (optional, default: "ollama") LLM provider to use ("openai", "gemini", "ollama").
+    - `model`: (optional) Specific model to use (e.g., "gpt-4o", "gemini-3-flash-preview", "qwen3-vl:235b-cloud").
+    - `resolution_width`: (optional) Width of screenshots for rendering.
+    - `resolution_height`: (optional) Height of screenshots for rendering.
+    - `risk_categories`: (optional) JSON array of custom `RiskCategory` objects (name and description).
+  - Returns: `ScanResponse` containing detected categories with severity and rationale.
 
 ### Roadmap
 
@@ -135,7 +137,7 @@ For guidance on writing effective tests, see: [Testing on the Toilet: Change-Det
 - [x] Gradio demo
 - [ ] AWS Bedrock support
 - [ ] External AI gateways with OpenAI API compatibility
-- [ ] Configurable Categories: Allow users to define custom risk categories in their scan requests instead of being limited to the hardcoded ones (weapons, nudity, self-harm, etc.)
+- [x] Configurable Categories: Allow users to define custom risk categories in their scan requests instead of being limited to the hardcoded ones (weapons, nudity, self-harm, etc.)
 - [ ] Add multi-modal (image, text, sound, video?)
 - [ ] Batch API
 - [ ] Async API

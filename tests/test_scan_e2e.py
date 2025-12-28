@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from dddguardrails import api
 from dddguardrails.config import settings
-from dddguardrails.guardrail import CATEGORIES
+from dddguardrails.schemas import CATEGORIES
 
 
 # Expected violation status for each test file
@@ -57,8 +57,9 @@ def test_scan_detects_guardrail_violation(filename, expects_violation):
     assert isinstance(payload["findings"], list)
 
     # Validate finding structure
+    cat_names = {c.name for c in CATEGORIES}
     for finding in payload["findings"]:
-        assert finding["category"] in CATEGORIES
+        assert finding["category"] in cat_names
         assert finding["severity"] in {"none", "low", "medium", "high"}
 
     # Check if violations were detected as expected
