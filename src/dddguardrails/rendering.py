@@ -93,49 +93,49 @@ def render_views_generator(
     cam_positions = _get_camera_positions(center, radius)
     
 
-    pl = pv.Plotter(off_screen=True, window_size=settings.screenshot_resolution, lighting=None)
-    if isinstance(loaded, trimesh.Scene):
-        for name, g in loaded.geometry.items():
-            if isinstance(g, trimesh.Trimesh): 
-                mesh = pv.wrap(g)
-                tex = None
-                if hasattr(g.visual, 'material'):
-                    image = _get_texture_image(g.visual.material)
-                    if image is not None:
-                        tex = pv.Texture(np.array(image))
-                pl.add_mesh(mesh, texture=tex)
-    else: 
-        mesh = pv.wrap(loaded)
-        tex = None
-        if hasattr(loaded.visual, 'material'):
-            image = _get_texture_image(loaded.visual.material)
-            if image is not None:
-                tex = pv.Texture(np.array(image))
-        pl.add_mesh(mesh, texture=tex)
+    pl = pv.Plotter(off_screen=True, window_size=resolution or settings.screenshot_resolution, lighting=None)
+    try:
+        if isinstance(loaded, trimesh.Scene):
+            for name, g in loaded.geometry.items():
+                if isinstance(g, trimesh.Trimesh): 
+                    mesh = pv.wrap(g)
+                    tex = None
+                    if hasattr(g.visual, 'material'):
+                        image = _get_texture_image(g.visual.material)
+                        if image is not None:
+                            tex = pv.Texture(np.array(image))
+                    pl.add_mesh(mesh, texture=tex)
+        else: 
+            mesh = pv.wrap(loaded)
+            tex = None
+            if hasattr(loaded.visual, 'material'):
+                image = _get_texture_image(loaded.visual.material)
+                if image is not None:
+                    tex = pv.Texture(np.array(image))
+            pl.add_mesh(mesh, texture=tex)
 
-    pl.background_color = BG_COLOR[:3]
-    pl.add_light(pv.Light(position=(0, 0, 1), color='white', intensity=1.5, light_type='camera light'))
-    pl.add_light(pv.Light(position=(0, 1, 0), color=[0.9, 0.95, 1.0], intensity=1.0))
-    pl.add_light(pv.Light(position=(1, 0, 0), color=[1.0, 0.95, 0.9], intensity=0.7))
-    
-    for idx, pos in enumerate(cam_positions):
-        pl.camera_position = [pos, center, (0.0, 1.0, 0.0)]
-        pl.camera.view_angle = 60
-        pl.render()
-        img_array = pl.screenshot(None, return_img=True)
+        pl.background_color = BG_COLOR[:3]
+        pl.add_light(pv.Light(position=(0, 0, 1), color='white', intensity=1.5, light_type='camera light'))
+        pl.add_light(pv.Light(position=(0, 1, 0), color=[0.9, 0.95, 1.0], intensity=1.0))
+        pl.add_light(pv.Light(position=(1, 0, 0), color=[1.0, 0.95, 0.9], intensity=0.7))
         
-        # Convert to PNG bytes
-        img_pil = Image.fromarray(img_array)
-        with io.BytesIO() as bio:
-            img_pil.save(bio, format="PNG")
-            img_bytes = bio.getvalue()
+        for idx, pos in enumerate(cam_positions):
+            pl.camera_position = [pos, center, (0.0, 1.0, 0.0)]
+            pl.camera.view_angle = 60
+            pl.render()
+            img_array = pl.screenshot(None, return_img=True)
+            
+            # Convert to PNG bytes
+            img_pil = Image.fromarray(img_array)
+            with io.BytesIO() as bio:
+                img_pil.save(bio, format="PNG")
+                img_bytes = bio.getvalue()
 
-        render_total_ms = (time.perf_counter() - start_time) * 1000
-        log.info("Rendered view %d in %.3f ms", idx, render_total_ms)
-        yield img_bytes
-        start_time = time.perf_counter()
+            render_total_ms = (time.perf_counter() - start_time) * 1000
+            log.info("Rendered view %d in %.3f ms", idx, render_total_ms)
 
-        if os.getenv("DEBUG"): Image.fromarray(img_array).save(f"pyvista_view_{idx}.png")
-    
-    pl.close()
+            yield img_bytes
+            start_time = time.perf_counter()
+    finally:
+        pl.close()
     
