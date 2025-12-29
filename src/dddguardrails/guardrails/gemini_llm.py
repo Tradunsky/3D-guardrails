@@ -10,8 +10,12 @@ log = getLogger()
 
 
 class GeminiGuardrail(Guardrail):
-    def __init__(self, api_key: str = settings.gemini_api_key) -> None:
-        self._client: genai.Client = genai.Client(api_key=api_key)
+    def __init__(self, api_key: str = settings.gemini_api_key, base_url: str | None = None) -> None:
+        http_options = None
+        if base_url:
+            http_options = genai.types.HttpOptions(base_url=base_url)
+        
+        self._client: genai.Client = genai.Client(api_key=api_key, http_options=http_options)
         self._default_model = settings.gemini_model
 
     def classify(

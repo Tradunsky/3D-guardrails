@@ -54,20 +54,28 @@ app = FastAPI(
     tags=["3d-guardrails"],
 )
 
-_guardrails: dict[str, Guardrail] = {
-    "openai": OpenAIGuardrail(),
-    "gemini": GeminiGuardrail(),
-    "ollama": OllamaGuardrail(),
+_guardrail_classes: dict[str, type[Guardrail]] = {
+    "openai": OpenAIGuardrail,
+    "gemini": GeminiGuardrail,
+    "ollama": OllamaGuardrail,
 }
 
+_guardrail_cache: dict[str, Guardrail] = {}
 
-def _get_guardrail(provider: str = "gemini") -> Guardrail:
-    guardrail = _guardrails.get(provider)
-    if not guardrail:
-        supported_guardrails = ", ".join(_guardrails.keys())
+
+def _get_guardrail(provider: str = "gemini", base_url: str | None = None) -> Guardrail:    
+    cache_key = f"{provider}_{base_url}"
+    if cache_key in _guardrail_cache:
+        return _guardrail_cache[cache_key]
+    
+    cls = _guardrail_classes.get(provider)
+    if not cls:
+        supported = ", ".join(_guardrail_classes.keys())
         raise ValueError(
-            f"Unsupported LLM provider: {provider}. Supported: {supported_guardrails}"
+            f"Unsupported LLM provider: {provider}. Supported: {supported}"
         )
+    guardrail = cls(base_url=base_url)
+    _guardrail_cache[cache_key] = guardrail
     return guardrail
 
 

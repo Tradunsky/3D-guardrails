@@ -20,8 +20,8 @@ log = logging.getLogger("dddguardrails.llm")
 class OpenAIGuardrail(Guardrail):
     """Minimal client wrapper for the OpenAI Responses API."""
 
-    def __init__(self, api_key: str = settings.openai_api_key):
-        self._client = OpenAI(api_key=api_key)
+    def __init__(self, api_key: str = settings.openai_api_key, base_url: str | None = None):
+        self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._default_model = settings.openai_model
 
     def classify(

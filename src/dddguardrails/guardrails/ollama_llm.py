@@ -13,7 +13,7 @@ log = getLogger()
 
 
 class OllamaGuardrail(Guardrail):
-    def __init__(self, base_url: str = settings.ollama_base_url) -> None:
+    def __init__(self, base_url: str | None = None) -> None:
         self._client = ollama.Client(host=base_url)
         self._default_model = settings.ollama_model
 

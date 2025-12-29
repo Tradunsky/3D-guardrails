@@ -136,7 +136,7 @@ For guidance on writing effective tests, see: [Testing on the Toilet: Change-Det
 - [ ] Evals
 - [x] Gradio demo
 - [ ] AWS Bedrock support
-- [ ] External AI gateways with OpenAI API compatibility
+- [x] External AI gateways
 - [x] Configurable Categories: Allow users to define custom risk categories in their scan requests instead of being limited to the hardcoded ones (weapons, nudity, self-harm, etc.)
 - [ ] Add multi-modal (image, text, sound, video?)
 - [ ] Batch API
