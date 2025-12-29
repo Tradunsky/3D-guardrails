@@ -14,10 +14,10 @@ log = getLogger()
 
 class OllamaGuardrail(Guardrail):
     def __init__(self, base_url: str | None = None) -> None:
-        self._client = ollama.Client(host=base_url)
+        self._client = ollama.AsyncClient(host=base_url)
         self._default_model = settings.ollama_model
 
-    def classify(
+    async def classify(
         self,
         *,
         screenshot: bytes,
@@ -31,8 +31,9 @@ class OllamaGuardrail(Guardrail):
         cat_names = {c.name.lower() for c in risk_categories}
         
         categories_text = "\n".join(f"- {c.name}: {c.description}" for c in risk_categories)
+        view_text = f"view #{view_number}" if view_number > 0 else "multiple views (tiled)"
         instructions = (
-            "You are a trust and safety analyst. Review this render of the 3D asset "
+            f"You are a trust and safety analyst. Review these {view_text} of the 3D asset "
             f"named '{file_name}' ({file_format}) and flag any category that could undermine "
             "user trust. Only use the allowed categories and respond with a JSON object containing a 'findings' array."
             f"Allowed categories:\n"
@@ -52,7 +53,7 @@ class OllamaGuardrail(Guardrail):
         # Convert image bytes to base64 string for Ollama
         b64_image = base64.b64encode(screenshot).decode("ascii")
 
-        response = self._client.chat(
+        response = await self._client.chat(
             model=model_to_use,
             messages=[
                 {

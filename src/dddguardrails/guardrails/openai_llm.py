@@ -7,7 +7,7 @@ import json
 import logging
 from typing import List
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from dddguardrails.config import settings
 from dddguardrails.guardrail import Guardrail
@@ -21,10 +21,10 @@ class OpenAIGuardrail(Guardrail):
     """Minimal client wrapper for the OpenAI Responses API."""
 
     def __init__(self, api_key: str = settings.openai_api_key, base_url: str | None = None):
-        self._client = OpenAI(api_key=api_key, base_url=base_url)
+        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         self._default_model = settings.openai_model
 
-    def classify(
+    async def classify(
         self,
         *,
         screenshot: bytes,
@@ -38,8 +38,9 @@ class OpenAIGuardrail(Guardrail):
         cat_names = {c.name.lower() for c in risk_categories}
         
         categories_text = "\n".join(f"- {c.name.lower()}: {c.description}" for c in risk_categories)
+        view_text = f"view #{view_number}" if view_number > 0 else "multiple views (tiled)"
         instructions = (
-            "You are a trust and safety analyst. Review this render of the 3D asset "
+            f"You are a trust and safety analyst. Review these {view_text} of the 3D asset "
             f"named '{file_name}' ({file_format}) and flag any category that could undermine "
             "user trust. Only use the allowed categories and respond with a JSON object containing a 'findings' array."
             f"Allowed categories:\n"
@@ -69,7 +70,7 @@ class OpenAIGuardrail(Guardrail):
             },
         ]
 
-        response = self._client.responses.create(
+        response = await self._client.responses.create(
             model=model_to_use,
             input=[{"role": "user", "content": content}],
             instructions=instructions,

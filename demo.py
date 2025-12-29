@@ -71,6 +71,7 @@ async def scan_3d_asset(
             file=upload_file,
             llm_provider=llm_provider,
             model=model.strip() if model and model.strip() else None,
+            provider_base_url=None,
             resolution_width=res_w,
             resolution_height=res_h,
             risk_categories=risk_cats if risk_cats else None,

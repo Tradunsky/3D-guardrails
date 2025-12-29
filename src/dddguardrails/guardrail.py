@@ -10,7 +10,7 @@ from typing import Literal
 from dddguardrails.schemas import RiskCategory, RiskFinding
 
 class Guardrail:
-    def classify(
+    async def classify(
         self,
         *,
         screenshot: bytes,

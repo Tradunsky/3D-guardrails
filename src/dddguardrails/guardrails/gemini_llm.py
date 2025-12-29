@@ -18,7 +18,7 @@ class GeminiGuardrail(Guardrail):
         self._client: genai.Client = genai.Client(api_key=api_key, http_options=http_options)
         self._default_model = settings.gemini_model
 
-    def classify(
+    async def classify(
         self,
         *,
         screenshot: bytes,
@@ -32,10 +32,12 @@ class GeminiGuardrail(Guardrail):
         cat_names = {c.name.lower() for c in risk_categories}
         
         categories_text = "\n".join(f"- {c.name.lower()}: {c.description}" for c in risk_categories)
+        view_text = f"view #{view_number}" if view_number > 0 else "multiple views (tiled in a 2x3 grid)"
         instructions = (
-            "You are a trust and safety analyst. Review this render of the 3D asset "
+            f"You are a trust and safety analyst. Review these {view_text} of the 3D asset "
             f"named '{file_name}' ({file_format}) and flag any category that could undermine "
-            "user trust. Only use the allowed categories and respond with a JSON object containing a 'findings' array."
+            "user trust. If multiple views are provided, scan each tile carefully. "
+            "Only use the allowed categories and respond with a JSON object containing a 'findings' array."
             f"Allowed categories:\n"
             f"{categories_text}"
             "\n\nSeverity must be one of: none, low, medium, high."
@@ -75,13 +77,13 @@ class GeminiGuardrail(Guardrail):
             types.Content(
                 role="user",
                 parts=[
-                    types.Part.from_text(text=instructions),
+                    types.Part.from_text(text=instructions),                    
                     types.Part.from_bytes(data=screenshot, mime_type="image/png"),
                 ],
             )
         ]
 
-        response = self._client.models.generate_content(
+        response = await self._client.aio.models.generate_content(
             model=model_to_use,
             contents=content,
             config=types.GenerateContentConfig(

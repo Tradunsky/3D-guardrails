@@ -130,6 +130,7 @@ For guidance on writing effective tests, see: [Testing on the Toilet: Change-Det
 - [x] Ollama support
 - [x] User specified provider and models support
 - [x] Early exit on the first violation (save tokens)
+- [x] Tile rendering for faster violation/non-violation detection
 - [x] Docker/docker-compose support with headless rendering
 - [x] Improve rendering performance
 - [x] Benchmark
@@ -144,5 +145,3 @@ For guidance on writing effective tests, see: [Testing on the Toilet: Change-Det
 - [ ] Streaming API
 - [x] Reading content from URLs (presigned URL, internet content, ect)
 - [ ] Backwards compatible API with OpenAI and AWS Bedrock Guardrails
-- [ ] Configurable early exit (based on severity of findings?)
-- [ ] Parallelize scanning when violation is not detected on a first view

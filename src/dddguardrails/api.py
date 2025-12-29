@@ -27,7 +27,7 @@ from dddguardrails.guardrails.openai_llm import OpenAIGuardrail
 from dddguardrails.logger_config import configure_logging
 from dddguardrails.rendering import (
     AssetProcessingError,
-    render_views_generator,    
+    render_tiled_views,
 )
 
 from dddguardrails.schemas import RiskCategory, CATEGORIES, ScanResponse
@@ -135,6 +135,9 @@ async def scan_asset(
         "qwen3-vl:235b-cloud",
         description="Specific model to use (optional, uses default if not specified)",
     ),
+    provider_base_url: str | None = Form(
+        None, description="Optional base URL for the LLM provider"
+    ),
     resolution_width: int = Form(
         settings.screenshot_resolution[0], description="Resolution width for rendering"
     ),
@@ -182,38 +185,31 @@ async def scan_asset(
 
     resolution = (resolution_width, resolution_height) or settings.screenshot_resolution
 
-    guard = _get_guardrail(llm_provider)
-    findings = []
-    views_evaluated = 0
+    guard = _get_guardrail(llm_provider, provider_base_url)
     
-    llm_total_ms = 0.0
-    rendering_total_ms = 0.0
-    rendering_start_timer = time.perf_counter()    
-
-    for idx, screenshot in enumerate(render_views_generator(contents, extension, resolution), start=1):
-        views_evaluated = idx
-        rendering_total_ms += (time.perf_counter() - rendering_start_timer) * 1000
-            
-        llm_step_start = time.perf_counter()
-        view_findings = guard.classify(
-            screenshot=screenshot,
-            view_number=idx,
-            file_name=file_name,
-            file_format=extension,
-            risk_categories=risk_categories,
-            model=model,            
-        )
-        llm_total_ms += (time.perf_counter() - llm_step_start) * 1000
-        rendering_start_timer = time.perf_counter()
-
-        # Dump screenshot if requested (for debugging)
-        if os.getenv("DDDG_DUMP_SCREENSHOTS") == "True":
-            with open(f"screenshot-{idx}.png", "wb") as f:
-                f.write(screenshot)
-
-        if view_findings:
-            findings = view_findings
-            break
+    rendering_start = time.perf_counter()
+    # Use higher resolution for tiled view to preserve detail across subplots
+    tiled_res = (resolution[0] * 2, resolution[1] * 2) 
+    screenshot = render_tiled_views(contents, extension, tiled_res)
+    rendering_total_ms = (time.perf_counter() - rendering_start) * 1000
+    
+    llm_start = time.perf_counter()
+    findings = await guard.classify(
+        screenshot=screenshot,
+        view_number=0, # 0 means multi-view tiled
+        file_name=file_name,
+        file_format=extension,
+        risk_categories=risk_categories,
+        model=model,            
+    )
+    llm_total_ms = (time.perf_counter() - llm_start) * 1000
+    views_evaluated = 6 # Tiled image contains 6 views
+    
+    # Dump screenshot if requested (for debugging)
+    if os.getenv("DDDG_DUMP_SCREENSHOTS") == "True":
+        with open(f"screenshot-tiled.png", "wb") as f:
+            f.write(screenshot)
+    
 
     end_time = time.perf_counter()
     total_ms = (end_time - start_time) * 1000

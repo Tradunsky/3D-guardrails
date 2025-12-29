@@ -77,27 +77,33 @@ def _get_texture_image(material):
 
 BG_COLOR = [0.05, 0.05, 0.05, 1.0]
 
-def render_views_generator(
+def render_tiled_views(
     contents: bytes,
     extension: str,
     resolution: Tuple[int, int],
-) -> Generator[bytes, None, None]:
+) -> bytes:
+    """Render all views and stitch them into a single tiled image (2 rows, 3 columns)."""
     start_total = time.perf_counter()
     
-    # LOADING
     file_obj = io.BytesIO(contents)
     loaded = trimesh.load(file_obj, file_type=extension, skip_materials=False)
-    trimesh_total_ms = (time.perf_counter() - start_total) * 1000
-    log.info("Mesh loaded successfully, type: %s | time=%f ms", type(loaded).__name__, trimesh_total_ms)
-    start_time = time.perf_counter()
+    log.info("Mesh loaded successfully for tiled render, type: %s", type(loaded).__name__)
+    
     center, radius = _get_mesh_stats(loaded)
     cam_positions = _get_camera_positions(center, radius)
     
-
-    pl = pv.Plotter(off_screen=True, window_size=resolution, lighting=None)
+    # Calculate cell size for a 2x3 grid to match target resolution
+    # resolution is (width, height)
+    total_w, total_h = resolution
+    cell_w = total_w // 3
+    cell_h = total_h // 2
+    
+    pl = pv.Plotter(off_screen=True, window_size=(cell_w, cell_h), lighting=None)
+    
     try:
+        # Add mesh once - this logic is proven to work in render_views_generator
         if isinstance(loaded, trimesh.Scene):
-            for name, g in loaded.geometry.items():
+            for g in loaded.geometry.values():
                 if isinstance(g, trimesh.Trimesh): 
                     mesh = pv.wrap(g)
                     tex = None
@@ -119,24 +125,28 @@ def render_views_generator(
         pl.add_light(pv.Light(position=(0, 0, 1), color='white', intensity=1.5, light_type='camera light'))
         pl.add_light(pv.Light(position=(0, 1, 0), color=[0.9, 0.95, 1.0], intensity=1.0))
         pl.add_light(pv.Light(position=(1, 0, 0), color=[1.0, 0.95, 0.9], intensity=0.7))
-        
-        for idx, pos in enumerate(cam_positions):
+
+        views = []
+        for idx, pos in enumerate(cam_positions[:6]):
             pl.camera_position = [pos, center, (0.0, 1.0, 0.0)]
             pl.camera.view_angle = 60
             pl.render()
             img_array = pl.screenshot(None, return_img=True)
-            
-            # Convert to PNG bytes
-            img_pil = Image.fromarray(img_array)
-            with io.BytesIO() as bio:
-                img_pil.save(bio, format="PNG")
-                img_bytes = bio.getvalue()
+            views.append(Image.fromarray(img_array))
 
-            render_total_ms = (time.perf_counter() - start_time) * 1000
-            log.info("Rendered view %d in %.3f ms", idx, render_total_ms)
+        # Stitch them: 2 rows, 3 columns
+        tiled_img = Image.new('RGB', (cell_w * 3, cell_h * 2), color=(0, 0, 0))
+        for i, img in enumerate(views):
+            row, col = divmod(i, 3)
+            tiled_img.paste(img, (col * cell_w, row * cell_h))
 
-            yield img_bytes
-            start_time = time.perf_counter()
+        with io.BytesIO() as bio:
+            tiled_img.save(bio, format="PNG")
+            img_bytes = bio.getvalue()
+
+        total_ms = (time.perf_counter() - start_total) * 1000
+        log.info("Rendered and stitched 6 views in %.3f ms", total_ms)
+        return img_bytes
     finally:
         pl.close()
     
