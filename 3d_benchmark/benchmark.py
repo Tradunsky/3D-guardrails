@@ -4,6 +4,10 @@ import io
 import sys
 import multiprocessing
 import numpy as np
+
+# Set EGL platform for headless rendering.
+os.environ["PYOPENGL_PLATFORM"] = "egl"
+
 try:
     import pyvista as pv
 except ImportError:
@@ -27,10 +31,6 @@ try:
     import open3d as o3d
 except ImportError:
     o3d = None
-try:
-    import meshlib.mrmeshpy as mm
-except ImportError:
-    mm = None
 import tempfile
 import glob
 import matplotlib
@@ -39,8 +39,6 @@ import matplotlib.pyplot as plt
 import argparse
 import csv
 
-# Set EGL platform for headless rendering.
-os.environ["PYOPENGL_PLATFORM"] = "egl"
 
 logging.basicConfig(level=logging.ERROR)
 log = logging.getLogger(__name__)
@@ -53,9 +51,6 @@ TEST_DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../test
 VIEW_ANGLES = ((0, 10), (90, 10), (180, 10), (270, 10), (45, 45), (225, 45))
 BG_COLOR = [0.05, 0.05, 0.05, 1.0]
 
-# Read GLB once as bytes to share
-# with open(ASSET_PATH, "rb") as f:
-#     GLB_CONTENTS = f.read()
 
 def _to_radians(angles):
     vals = list(angles)
@@ -116,6 +111,7 @@ def bench_pyrender(contents):
     r = pyrender.OffscreenRenderer(RES[0], RES[1])
     cam_positions = get_camera_positions(center, radius)
     try:
+        total_img = Image.new('RGB', (RES[0] * 3, RES[1] * 2))
         for idx, pos in enumerate(cam_positions):
             f = (center - pos) / np.linalg.norm(center - pos)
             u, s = np.array([0, 1, 0]), np.cross(f, np.array([0, 1, 0]))
@@ -126,13 +122,16 @@ def bench_pyrender(contents):
             pose[:3, 0], pose[:3, 1], pose[:3, 2], pose[:3, 3] = s, u, -f, pos
             scene.set_pose(camera_node, pose)
             color, _ = r.render(scene)
-            image = Image.fromarray(color)
-            with io.BytesIO() as output:
-                image.save(output, format="PNG")
-                png_bytes = output.getvalue()
-            if os.getenv("DEBUG"): image.save(f"pyrender_view_{idx}.png")
+            view_img = Image.fromarray(color)
+            row, col = divmod(idx, 3)
+            total_img.paste(view_img, (col * RES[0], row * RES[1]))            
+        
+        with io.BytesIO() as output:
+            total_img.save(output, format="PNG")
+            png_bytes = output.getvalue()
+            if os.getenv("DEBUG"): total_img.save(f"pyrender_tiled.png")
     finally: r.delete()
-    return (time.perf_counter() - start_total) * 1000 / len(VIEW_ANGLES), png_bytes
+    return (time.perf_counter() - start_total) * 1000, png_bytes
 
 def bench_pyvista(contents):
     if pv is None:
@@ -167,19 +166,27 @@ def bench_pyvista(contents):
     pl.add_light(pv.Light(position=(0, 0, 1), color='white', intensity=1.5, light_type='camera light'))
     pl.add_light(pv.Light(position=(0, 1, 0), color=[0.9, 0.95, 1.0], intensity=1.0))
     pl.add_light(pv.Light(position=(1, 0, 0), color=[1.0, 0.95, 0.9], intensity=0.7))
+    views = []
     for idx, pos in enumerate(cam_positions):
         pl.camera_position = [pos, center, (0.0, 1.0, 0.0)]
         pl.camera.view_angle = 60
         pl.render()
         img = pl.screenshot(None, return_img=True)
-        # Convert to PNG bytes
-        image = Image.fromarray(img)
-        with io.BytesIO() as output:
-            image.save(output, format="PNG")
-            png_bytes = output.getvalue()
-        if os.getenv("DEBUG"): image.save(f"pyvista_view_{idx}.png")
+        view_img = Image.fromarray(img)
+        views.append(view_img)        
+    
+    # Stitch them: 2 rows, 3 columns to match rendering.py
+    tiled_img = Image.new('RGB', (RES[0] * 3, RES[1] * 2), color=(0, 0, 0))
+    for i, img in enumerate(views):
+        row, col = divmod(i, 3)
+        tiled_img.paste(img, (col * RES[0], row * RES[1]))
+
+    with io.BytesIO() as output:
+        tiled_img.save(output, format="PNG")
+        png_bytes = output.getvalue()
+        if os.getenv("DEBUG"): tiled_img.save(f"pyvista_tiled.png")
     pl.close()
-    return (time.perf_counter() - start_total) * 1000 / len(VIEW_ANGLES), png_bytes
+    return (time.perf_counter() - start_total) * 1000, png_bytes
 
 def bench_pygfx(contents):
     if gfx is None or RenderCanvas is None:
@@ -219,18 +226,22 @@ def bench_pygfx(contents):
     scene.add(key_light)
     camera = gfx.PerspectiveCamera(60, 1)
     cam_positions = get_camera_positions(center, radius)
+    total_img = Image.new('RGB', (RES[0] * 3, RES[1] * 2))
     for idx, pos in enumerate(cam_positions):
         camera.local.position = pos
         camera.look_at(center)
         renderer.render(scene, camera)
         canvas.draw()
         img = renderer.snapshot()
-        image = Image.fromarray(img)
-        with io.BytesIO() as output:
-            image.save(output, format="PNG")
-            png_bytes = output.getvalue()
-        if os.getenv("DEBUG"): image.save(f"pygfx_view_{idx}.png")
-    return (time.perf_counter() - start_total) * 1000 / len(VIEW_ANGLES), png_bytes
+        view_img = Image.fromarray(img)
+        row, col = divmod(idx, 3)
+        total_img.paste(view_img, (col * RES[0], row * RES[1]))
+        
+    with io.BytesIO() as output:
+        total_img.save(output, format="PNG")
+        png_bytes = output.getvalue()
+        if os.getenv("DEBUG"): total_img.save(f"pygfx_tiled.png")
+    return (time.perf_counter() - start_total) * 1000, png_bytes
 
 def bench_open3d(contents):
     if o3d is None:
@@ -261,41 +272,22 @@ def bench_open3d(contents):
         center = full_bbox.get_center()
         radius = np.linalg.norm(full_bbox.get_max_bound() - full_bbox.get_min_bound()) / 2.0
         cam_positions = get_camera_positions(center, radius)
+        total_img = Image.new('RGB', (RES[0] * 3, RES[1] * 2))
         for idx, pos in enumerate(cam_positions):
             render.setup_camera(60.0, center, pos, [0, 1, 0])
             img = render.render_to_image()
-            # Convert Open3D image to numpy then to PIL then to bytes
             img_np = np.asarray(img)
-            image = Image.fromarray(img_np)
-            with io.BytesIO() as output:
-                image.save(output, format="PNG")
-                png_bytes = output.getvalue()
-            if os.getenv('DEBUG'): o3d.io.write_image(f'open3d_view_{idx}.png', img)
-    finally:
-        if os.path.exists(tmp_path): os.unlink(tmp_path)
-    return (time.perf_counter() - start_total) * 1000 / len(VIEW_ANGLES), png_bytes
+            view_img = Image.fromarray(img_np)
+            row, col = divmod(idx, 3)
+            total_img.paste(view_img, (col * RES[0], row * RES[1]))
 
-def bench_meshlib(contents):
-    if mm is None:
-        print("❌ MeshLib not installed")
-        return 0
-    print("🚀 Benchmarking MeshLib (Loading + Stats Only)...")
-    start_total = time.perf_counter()
-    with tempfile.NamedTemporaryFile(suffix='.glb', delete=False) as tf:
-        tf.write(contents)
-        tmp_path = tf.name
-    try:
-        res = mm.loadSceneFromAnySupportedFormat(tmp_path)
-        obj = res.obj
-        bbox = obj.getWorldBox()
-        # bbox is a Box3f?
-        # MeshLib Box3f has min, max
-        center = np.array([(bbox.min.x + bbox.max.x)/2.0, (bbox.min.y + bbox.max.y)/2.0, (bbox.min.z + bbox.max.z)/2.0])
-        extent = np.array([bbox.max.x - bbox.min.x, bbox.max.y - bbox.min.y, bbox.max.z - bbox.min.z])
-        radius = np.linalg.norm(extent) / 2.0
+        with io.BytesIO() as output:
+            total_img.save(output, format="PNG")
+            png_bytes = output.getvalue()
+            if os.getenv('DEBUG'): total_img.save(f'open3d_tiled.png')
     finally:
         if os.path.exists(tmp_path): os.unlink(tmp_path)
-    return (time.perf_counter() - start_total) * 1000, None 
+    return (time.perf_counter() - start_total) * 1000, png_bytes
 
 def run_bench(name, func, contents, results):
     try:
@@ -311,7 +303,7 @@ def run_bench(name, func, contents, results):
 
 def generate_charts(all_latencies):
     # all_latencies: {framework: [all_raw_latencies]}
-    frameworks = ['Pyrender', 'PyGfx', 'PyVista', 'Open3D', 'MeshLib*'] # Keep order
+    frameworks = ['Pyrender', 'PyGfx', 'PyVista', 'Open3D'] # Keep order
     
     means = []
     mins = []
@@ -353,8 +345,8 @@ def generate_charts(all_latencies):
     
     ax.bar_label(bars, fmt='%.1f', padding=5)
     
-    ax.set_ylabel('Latency (ms)')
-    ax.set_title('Average 3D Rendering Latency (Lower is better)\nError bars show Min/Max range')
+    ax.set_ylabel('Total Latency (6 views) (ms)')
+    ax.set_title('Total 3D Rendering Latency for 6 Views (Lower is better)\nError bars show Min/Max range')
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
@@ -407,7 +399,6 @@ if __name__ == '__main__':
                     ('PyGfx', bench_pygfx), 
                     ('PyVista', bench_pyvista),
                     ('Open3D', bench_open3d),
-                    ('MeshLib*', bench_meshlib)
                 ]
                 
                 for name, func in all_benches:
@@ -436,7 +427,7 @@ if __name__ == '__main__':
 
             # Compute stats for this mesh
             print(f'Results for {mesh_name} (Median of {args.iterations} runs):')
-            for name in ['Pyrender', 'PyGfx', 'PyVista', 'Open3D', 'MeshLib*']:
+            for name in ['Pyrender', 'PyGfx', 'PyVista', 'Open3D']:
                 lats = mesh_latencies.get(name, [])
                 if lats:
                     median_lat = np.median(lats)
