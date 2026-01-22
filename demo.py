@@ -144,13 +144,13 @@ demo = gr.Interface(
     additional_inputs=[
         gr.Dropdown(
             label="LVM Provider",
-            choices=["gemini", "openai", "ollama"],
-            value="gemini",
+            choices=["gemini", "openai", "ollama", "groq"],
+            value="groq",
             info="Select the AI model provider for analysis",
         ),
         gr.Dropdown(
             label="Model (Optional, Editable)",
-            value="gemini-3-flash-preview",
+            value="meta-llama/llama-4-scout-17b-16e-instruct",
             choices=[                
                 "gemini-3-flash-preview",
                 "gemini-3-pro-preview",
@@ -158,6 +158,7 @@ demo = gr.Interface(
                 "gpt-4o",
                 "gpt-5.2",
                 "qwen3-vl:235b-cloud",
+                "meta-llama/llama-4-scout-17b-16e-instruct",
             ],
             info="Leave empty to use the provider's default model",
             allow_custom_value=True,
@@ -208,8 +209,8 @@ demo = gr.Interface(
     examples=[
         [
             str(dataset_dir / file), 
-            "gemini", 
-            "gemini-3-flash-preview", 
+            "groq", 
+            "meta-llama/llama-4-scout-17b-16e-instruct", 
             settings.screenshot_resolution[0], 
             settings.screenshot_resolution[1], 
             [[c.name, c.description] for c in CATEGORIES]

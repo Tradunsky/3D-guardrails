@@ -24,6 +24,7 @@ from dddguardrails.guardrail import Guardrail
 from dddguardrails.guardrails.gemini_llm import GeminiGuardrail
 from dddguardrails.guardrails.ollama_llm import OllamaGuardrail
 from dddguardrails.guardrails.openai_llm import OpenAIGuardrail
+from dddguardrails.guardrails.groq_llm import GroqGuardrail
 from dddguardrails.logger_config import configure_logging
 from dddguardrails.rendering import (
     AssetProcessingError,
@@ -60,6 +61,7 @@ _guardrail_classes: dict[str, type[Guardrail]] = {
     "openai": OpenAIGuardrail,
     "gemini": GeminiGuardrail,
     "ollama": OllamaGuardrail,
+    "groq": GroqGuardrail,
 }
 
 _guardrail_cache: dict[str, Guardrail] = {}
@@ -129,7 +131,7 @@ async def scan_asset(
     url: str | None = Form(None, description="URL of the 3D asset to scan"),
     llm_provider: str = Form(
         "ollama",
-        description="LLM provider to use for analysis (openai, gemini, ollama)",
+        description="LLM provider to use for analysis (openai, gemini, ollama, groq)",
     ),
     model: str | None = Form(
         "qwen3-vl:235b-cloud",

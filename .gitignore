@@ -12,3 +12,4 @@ wheels/
 *.png
 !.docs/images/*.png
 !3d_benchmark/benchmark_results.png
+.idea

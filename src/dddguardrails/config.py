@@ -19,7 +19,7 @@ class Settings(BaseSettings):
         "stl",
         "ply",
     )
-    screenshot_resolution: Tuple[int, int] = (512, 512)
+    screenshot_resolution: Tuple[int, int] = (128, 128)
     camera_distance: float = 1.2
     multi_view_angles: Tuple[Tuple[int, int], ...] = (
         (0, 10),
@@ -37,6 +37,9 @@ class Settings(BaseSettings):
 
     ollama_model: str = os.getenv("OLLAMA_MODEL", "qwen3-vl:235b-cloud")
     ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
+    groq_model: str = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+    groq_api_key: str = os.getenv("GROQ_API_KEY")
 
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra="allow")
 
