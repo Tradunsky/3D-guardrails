@@ -19,7 +19,7 @@ class Settings(BaseSettings):
         "stl",
         "ply",
     )
-    screenshot_resolution: Tuple[int, int] = (128, 128)
+    screenshot_resolution: Tuple[int, int] = (256, 256)
     camera_distance: float = 1.2
     multi_view_angles: Tuple[Tuple[int, int], ...] = (
         (0, 10),
