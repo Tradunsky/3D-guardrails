@@ -195,6 +195,13 @@ async def scan_asset(
     screenshot = render_tiled_views(contents, extension, tiled_res)
     rendering_total_ms = (time.perf_counter() - rendering_start) * 1000
     
+    # Dump screenshot if requested (for debugging)
+    if os.getenv("DDDG_DUMP_SCREENSHOTS") == "True":
+        file_name_parts = file_name.split(".")
+        screenshot_file_name = file_name_parts[0] if len(file_name_parts) > 1 else file_name
+        with open(f"{screenshot_file_name}.png", "wb") as f:
+            f.write(screenshot)
+
     llm_start = time.perf_counter()
     findings = await guard.classify(
         screenshot=screenshot,
@@ -206,11 +213,6 @@ async def scan_asset(
     )
     llm_total_ms = (time.perf_counter() - llm_start) * 1000
     views_evaluated = 6 # Tiled image contains 6 views
-    
-    # Dump screenshot if requested (for debugging)
-    if os.getenv("DDDG_DUMP_SCREENSHOTS") == "True":
-        with open(f"screenshot-tiled.png", "wb") as f:
-            f.write(screenshot)
     
 
     end_time = time.perf_counter()

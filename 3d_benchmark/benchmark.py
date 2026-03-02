@@ -141,35 +141,64 @@ def bench_pyvista(contents):
     start_total = time.perf_counter()
     file_obj = io.BytesIO(contents)
     loaded = trimesh.load(file_obj, file_type='glb', skip_materials=False)
-    center, radius = get_mesh_stats(loaded)
-    cam_positions = get_camera_positions(center, radius)
     pl = pv.Plotter(off_screen=True, window_size=RES, lighting=None)
     if isinstance(loaded, trimesh.Scene):
-        for name, g in loaded.geometry.items():
-            if isinstance(g, trimesh.Trimesh): 
-                mesh = pv.wrap(g)
-                tex = None
-                if hasattr(g.visual, 'material'):
-                    image = get_texture_image(g.visual.material)
-                    if image is not None:
+        for node_name in loaded.graph.nodes_geometry:
+            transform, geom_name = loaded.graph[node_name]
+            g = loaded.geometry[geom_name]
+            if not isinstance(g, trimesh.Trimesh) or len(g.vertices) == 0:
+                continue
+            mesh = pv.wrap(g)
+            tex = None
+            if hasattr(g.visual, 'material'):
+                image = get_texture_image(g.visual.material)
+                if image is not None:
+                    try:
                         tex = pv.Texture(np.array(image))
-                pl.add_mesh(mesh, texture=tex)
+                    except Exception:
+                        tex = None
+            actor = pl.add_mesh(mesh, texture=tex, smooth_shading=True)
+            actor.user_matrix = transform
     else: 
         mesh = pv.wrap(loaded)
         tex = None
         if hasattr(loaded.visual, 'material'):
             image = get_texture_image(loaded.visual.material)
             if image is not None:
-                tex = pv.Texture(np.array(image))
-        pl.add_mesh(mesh, texture=tex)
+                try:
+                    tex = pv.Texture(np.array(image))
+                except Exception:
+                    tex = None
+        pl.add_mesh(mesh, texture=tex, smooth_shading=True)
+        
     pl.background_color = BG_COLOR[:3]
     pl.add_light(pv.Light(position=(0, 0, 1), color='white', intensity=1.5, light_type='camera light'))
     pl.add_light(pv.Light(position=(0, 1, 0), color=[0.9, 0.95, 1.0], intensity=1.0))
     pl.add_light(pv.Light(position=(1, 0, 0), color=[1.0, 0.95, 0.9], intensity=0.7))
+
+    bounds = pl.bounds
+    if bounds is not None:
+        mn = np.array([bounds[0], bounds[2], bounds[4]])
+        mx = np.array([bounds[1], bounds[3], bounds[5]])
+        center = (mn + mx) / 2.0
+        extent = mx - mn
+        radius = float(np.max(extent / 2.0))
+    else:
+        center = np.zeros(3)
+        radius = 1.0
+
+    fov_deg = 45.0
+    fov_rad = np.deg2rad(fov_deg)
+    render_distance = (radius / np.tan(fov_rad / 2.0)) * 1.5
+
     views = []
-    for idx, pos in enumerate(cam_positions):
-        pl.camera_position = [pos, center, (0.0, 1.0, 0.0)]
-        pl.camera.view_angle = 60
+    for az_deg, el_deg in VIEW_ANGLES:
+        az_rad, el_rad, _ = _to_radians((az_deg, el_deg))
+        cam_pos = _spherical_to_cartesian(render_distance, az_rad, el_rad) + center
+        
+        pl.camera_position = [cam_pos.tolist(), center.tolist(), (0.0, 1.0, 0.0)]
+        pl.camera.view_angle = fov_deg
+        pl.reset_camera_clipping_range()
         pl.render()
         img = pl.screenshot(None, return_img=True)
         view_img = Image.fromarray(img)

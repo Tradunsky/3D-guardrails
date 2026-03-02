@@ -3,10 +3,15 @@ services:
     build: .
     environment:
       - RUN_MODE=${RUN_MODE:-gradio}
-      - 3DG_DUMP_SCREENSHOTS=True
+      - DDDG_DUMP_SCREENSHOTS=True
     volumes:
       - .:/app
-    network_mode: "host"
+      # Using host network mode can cause port accessibility issues; switched to bridge mode with explicit port mapping
+      # Expose container port 8000 to host
+    network_mode: host
+    # ports:
+    #   - "8000:8000"
+    #   - "7860:7860"
     develop:
       watch:
         - action: sync

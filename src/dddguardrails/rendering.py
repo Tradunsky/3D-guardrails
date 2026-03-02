@@ -50,22 +50,6 @@ def _spherical_to_cartesian(distance: float, azimuth: float, elevation: float) -
     y = distance * np.sin(elevation)
     return np.array([x, y, z])
 
-def _get_mesh_stats(loaded):
-    bounds = loaded.bounds
-    center = bounds.mean(axis=0)
-    extent = bounds[1] - bounds[0]
-    radius = np.linalg.norm(extent) / 2.0
-    return center, radius
-
-def _get_camera_positions(center, radius, distance_multiplier=1.2):
-    fov = np.pi / 3.0
-    render_distance = (radius / np.sin(fov / 2.0)) * distance_multiplier
-    positions = []
-    for az_deg, el_deg in settings.multi_view_angles:
-        az_rad, el_rad, _ = _to_radians((az_deg, el_deg))
-        camera_pos = _spherical_to_cartesian(render_distance, az_rad, el_rad) + center
-        positions.append(camera_pos)
-    return positions
 
 def _get_texture_image(material):
     if material is None: return None
@@ -74,6 +58,83 @@ def _get_texture_image(material):
     if hasattr(material, 'image') and material.image is not None:
         return material.image
     return None
+
+
+def _add_meshes_to_plotter(loaded, pl: pv.Plotter) -> None:
+    """Add all meshes from a trimesh.Scene or trimesh.Trimesh to the plotter.
+    
+    For Scenes, applies the scene-graph transforms so geometry is in world space,
+    which is critical for correct bounds and camera positioning.
+    """
+    if isinstance(loaded, trimesh.Scene):
+        for node_name in loaded.graph.nodes_geometry:
+            transform, geom_name = loaded.graph[node_name]
+            g = loaded.geometry[geom_name]
+            if not isinstance(g, trimesh.Trimesh) or len(g.vertices) == 0:
+                continue
+            mesh = pv.wrap(g)
+            tex = None
+            if hasattr(g.visual, 'material'):
+                image = _get_texture_image(g.visual.material)
+                if image is not None:
+                    try:
+                        tex = pv.Texture(np.array(image))
+                    except Exception:
+                        tex = None
+            actor = pl.add_mesh(mesh, texture=tex, smooth_shading=True)
+            actor.user_matrix = transform
+    else:
+        mesh = pv.wrap(loaded)
+        tex = None
+        if hasattr(loaded.visual, 'material'):
+            image = _get_texture_image(loaded.visual.material)
+            if image is not None:
+                try:
+                    tex = pv.Texture(np.array(image))
+                except Exception:
+                    tex = None
+        pl.add_mesh(mesh, texture=tex, smooth_shading=True)
+
+
+def _compute_camera_params(pl: pv.Plotter, fov_deg: float = 45.0, distance_multiplier: float = 2.0):
+    """Derive center and camera distance from PyVista's own renderer bounds.
+    
+    This is the single source of truth — PyVista already knows what was added
+    and where it lives in world space.
+    
+    Args:
+        pl: Plotter with all meshes already added.
+        fov_deg: Vertical field of view in degrees.
+        distance_multiplier: Extra margin factor (>1) so the object doesn't fill 100% of frame.
+    
+    Returns:
+        (center, render_distance)
+    """
+    bounds = pl.bounds  # (xmin, xmax, ymin, ymax, zmin, zmax)
+    if bounds is None:
+        raise AssetProcessingError("Plotter has no bounds — was any mesh added?")
+    
+    mn = np.array([bounds[0], bounds[2], bounds[4]])
+    mx = np.array([bounds[1], bounds[3], bounds[5]])
+    center = (mn + mx) / 2.0
+    extent = mx - mn
+    
+    # Use the largest axis-aligned half-extent as the "radius"
+    # This is tighter than diagonal but more predictable for non-spherical models
+    half_extents = extent / 2.0
+    radius = float(np.max(half_extents))
+    
+    # Correct perspective formula: distance so that the radius fills half the FOV
+    # tan(fov/2) = radius / distance  =>  distance = radius / tan(fov/2)
+    fov_rad = np.deg2rad(fov_deg)
+    render_distance = (radius / np.tan(fov_rad / 2.0)) * distance_multiplier
+    
+    log.info(
+        "Bounds: mn=%s mx=%s center=%s radius=%.3f render_distance=%.3f",
+        mn, mx, center, radius, render_distance
+    )
+    return center, render_distance
+
 
 BG_COLOR = [0.05, 0.05, 0.05, 1.0]
 
@@ -89,47 +150,36 @@ def render_tiled_views(
     loaded = trimesh.load(file_obj, file_type=extension, skip_materials=False)
     log.info("Mesh loaded successfully for tiled render, type: %s", type(loaded).__name__)
     
-    center, radius = _get_mesh_stats(loaded)
-    cam_positions = _get_camera_positions(center, radius)
-    
     # Calculate cell size for a 2x3 grid to match target resolution
     # resolution is (width, height)
     total_w, total_h = resolution
     cell_w = total_w // 3
     cell_h = total_h // 2
     
+    fov_deg = 45.0
+    
     pl = pv.Plotter(off_screen=True, window_size=(cell_w, cell_h), lighting=None)
     
     try:
-        # Add mesh once - this logic is proven to work in render_views_generator
-        if isinstance(loaded, trimesh.Scene):
-            for g in loaded.geometry.values():
-                if isinstance(g, trimesh.Trimesh): 
-                    mesh = pv.wrap(g)
-                    tex = None
-                    if hasattr(g.visual, 'material'):
-                        image = _get_texture_image(g.visual.material)
-                        if image is not None:
-                            tex = pv.Texture(np.array(image))
-                    pl.add_mesh(mesh, texture=tex)
-        else: 
-            mesh = pv.wrap(loaded)
-            tex = None
-            if hasattr(loaded.visual, 'material'):
-                image = _get_texture_image(loaded.visual.material)
-                if image is not None:
-                    tex = pv.Texture(np.array(image))
-            pl.add_mesh(mesh, texture=tex)
-
+        # Add all meshes with world-space transforms applied
+        _add_meshes_to_plotter(loaded, pl)
+        
         pl.background_color = BG_COLOR[:3]
         pl.add_light(pv.Light(position=(0, 0, 1), color='white', intensity=1.5, light_type='camera light'))
         pl.add_light(pv.Light(position=(0, 1, 0), color=[0.9, 0.95, 1.0], intensity=1.0))
         pl.add_light(pv.Light(position=(1, 0, 0), color=[1.0, 0.95, 0.9], intensity=0.7))
 
+        # Derive center and render distance from the plotter's own bounds
+        center, render_distance = _compute_camera_params(pl, fov_deg=fov_deg, distance_multiplier=1.5)
+
         views = []
-        for idx, pos in enumerate(cam_positions[:6]):
-            pl.camera_position = [pos, center, (0.0, 1.0, 0.0)]
-            pl.camera.view_angle = 60
+        for az_deg, el_deg in settings.multi_view_angles[:6]:
+            az_rad, el_rad, _ = _to_radians((az_deg, el_deg))
+            cam_pos = _spherical_to_cartesian(render_distance, az_rad, el_rad) + center
+            
+            pl.camera_position = [cam_pos.tolist(), center.tolist(), (0.0, 1.0, 0.0)]
+            pl.camera.view_angle = fov_deg
+            pl.reset_camera_clipping_range()
             pl.render()
             img_array = pl.screenshot(None, return_img=True)
             views.append(Image.fromarray(img_array))
@@ -149,4 +199,3 @@ def render_tiled_views(
         return img_bytes
     finally:
         pl.close()
-    
