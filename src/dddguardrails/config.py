@@ -29,16 +29,16 @@ class Settings(BaseSettings):
         (45, 45),
         (225, 45),
     )
-    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-5.6-luna")
     openai_api_key: str
 
-    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3-pro-preview")
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
     gemini_api_key: str
 
     ollama_model: str = os.getenv("OLLAMA_MODEL", "qwen3-vl:235b-cloud")
     ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
-    groq_model: str = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+    groq_model: str = os.getenv("GROQ_MODEL", "qwen/qwen3.6-27b")
     groq_api_key: str = os.getenv("GROQ_API_KEY")
 
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra="allow")

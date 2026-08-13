@@ -150,15 +150,17 @@ demo = gr.Interface(
         ),
         gr.Dropdown(
             label="Model (Optional, Editable)",
-            value="meta-llama/llama-4-scout-17b-16e-instruct",
-            choices=[                
-                "gemini-3-flash-preview",
-                "gemini-3-pro-preview",
-                "gemini-2.5-flash-preview-09-2025",
-                "gpt-4o",
-                "gpt-5.2",
+            value="qwen/qwen3.6-27b",
+            choices=[
+                "gemini-3.6-flash",
+                "gemini-3.5-flash-lite",
+                "gemini-3.1-pro-preview",
+                "gemma-4-31b-it",
+                "gemma-4-26b-a4b-it",
+                "gpt-5.6-luna",
+                "gpt-5.6-terra"
                 "qwen3-vl:235b-cloud",
-                "meta-llama/llama-4-scout-17b-16e-instruct",
+                "qwen/qwen3.6-27b",
             ],
             info="Leave empty to use the provider's default model",
             allow_custom_value=True,
@@ -193,11 +195,11 @@ demo = gr.Interface(
         ),
         gr.Textbox(label="Status"),
         gr.BarPlot(
-            x="ms", 
+            x="ms",
             y=" ",
-            x_title="Latency (ms)", 
+            x_title="Latency (ms)",
             y_title="",
-            color="Legend", 
+            color="Legend",
             title="Processing Latency Breakdown",
             tooltip=["Legend", "ms"],
             height=250,
@@ -208,11 +210,11 @@ demo = gr.Interface(
     analytics_enabled=False,
     examples=[
         [
-            str(dataset_dir / file), 
-            "groq", 
-            "meta-llama/llama-4-scout-17b-16e-instruct", 
-            settings.screenshot_resolution[0], 
-            settings.screenshot_resolution[1], 
+            str(dataset_dir / file),
+            "groq",
+            "meta-llama/llama-4-scout-17b-16e-instruct",
+            settings.screenshot_resolution[0],
+            settings.screenshot_resolution[1],
             [[c.name, c.description] for c in CATEGORIES]
         ]
         for file in os.listdir(dataset_dir) if (dataset_dir / file).is_file()
