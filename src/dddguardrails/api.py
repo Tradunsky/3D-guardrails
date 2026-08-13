@@ -17,10 +17,6 @@ from google.genai.errors import ClientError
 
 from dddguardrails.config import settings
 from dddguardrails.guardrail import Guardrail
-from dddguardrails.guardrails.cerebras_llm import CerebrasGuardrail
-from dddguardrails.guardrails.gemini_llm import GeminiGuardrail
-from dddguardrails.guardrails.groq_llm import GroqGuardrail
-from dddguardrails.guardrails.ollama_llm import OllamaGuardrail
 from dddguardrails.guardrails.openai_llm import OpenAIGuardrail
 from dddguardrails.logger_config import configure_logging
 from dddguardrails.rendering import (
@@ -53,30 +49,22 @@ app = FastAPI(
     tags=["3d-guardrails"],
 )
 
-_guardrail_classes: dict[str, type[Guardrail]] = {
-    "openai": OpenAIGuardrail,
-    "gemini": GeminiGuardrail,
-    "ollama": OllamaGuardrail,
-    "groq": GroqGuardrail,
-    "cerebras": CerebrasGuardrail,
+_provider_to_guardrail: dict[str, Guardrail] = {
+    "openai": OpenAIGuardrail(api_key=settings.openai_api_key),
+    "gemini": OpenAIGuardrail(api_key=settings.gemini_api_key, base_url=settings.gemini_base_url),
+    "ollama": OpenAIGuardrail(api_key=settings.ollama_api_key, base_url=settings.ollama_base_url),
+    "groq": OpenAIGuardrail(api_key=settings.groq_api_key, base_url=settings.groq_base_url),
+    "cerebras": OpenAIGuardrail(api_key=settings.cerebras_api_key, base_url=settings.cerebras_base_url),
 }
 
-_guardrail_cache: dict[str, Guardrail] = {}
-
-
-def _get_guardrail(provider: str, base_url: str | None = None) -> Guardrail:
-    cache_key = f"{provider}_{base_url}"
-    if cache_key in _guardrail_cache:
-        return _guardrail_cache[cache_key]
-    
-    cls = _guardrail_classes.get(provider)
-    if not cls:
-        supported = ", ".join(_guardrail_classes.keys())
+def _get_guardrail(provider: str) -> Guardrail:
+    guardrail = _provider_to_guardrail.get(provider)
+    if not guardrail:
+        supported = ", ".join(_provider_to_guardrail.keys())
         raise ValueError(
             f"Unsupported LLM provider: {provider}. Supported: {supported}"
         )
-    guardrail = cls(base_url=base_url)
-    _guardrail_cache[cache_key] = guardrail
+
     return guardrail
 
 
@@ -127,15 +115,10 @@ async def scan_asset(
     file: UploadFile | None = File(None, description="3D asset in GLB/FBX/OBJ/STL/PLY format"),
     url: str | None = Form(None, description="URL of the 3D asset to scan"),
     llm_provider: str = Form(
-        "ollama",
         description="LLM provider to use for analysis (openai, gemini, ollama, groq, cerebras)",
     ),
-    model: str | None = Form(
-        "qwen3-vl:235b-cloud",
+    model: str = Form(
         description="Specific model to use (optional, uses default if not specified)",
-    ),
-    provider_base_url: str | None = Form(
-        None, description="Optional base URL for the LLM provider"
     ),
     resolution_width: int = Form(
         settings.screenshot_resolution[0], description="Resolution width for rendering"
@@ -184,7 +167,7 @@ async def scan_asset(
 
     resolution = (resolution_width, resolution_height) or settings.screenshot_resolution
 
-    guard = _get_guardrail(llm_provider, provider_base_url)
+    guard = _get_guardrail(llm_provider)
     
     rendering_start = time.perf_counter()
     # Use higher resolution for tiled view to preserve detail across subplots

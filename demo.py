@@ -65,8 +65,7 @@ async def scan_3d_asset(
         result = await scan_asset(
             file=upload_file,
             llm_provider=llm_provider,
-            model=model.strip() if model and model.strip() else None,
-            provider_base_url=None,
+            model=model.strip(),
             resolution_width=res_w,
             resolution_height=res_h,
             risk_categories=risk_cats if risk_cats else None,
@@ -148,7 +147,7 @@ demo = gr.Interface(
                 "gemini/gemma-4-26b-a4b-it",
                 "openai/gpt-5.6-luna",
                 "openai/gpt-5.6-terra",
-                "ollama/qwen3-vl:235b-cloud",
+                "ollama/gemma4:31b-cloud",
                 "groq/qwen/qwen3.6-27b",
                 "cerebras/gemma-4-31b",
             ],

@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import io
-import os
-import time
-from dataclasses import dataclass
-from typing import Generator, Iterable, List, Sequence, Tuple
-
-import pyvista as pv
-import numpy as np
-import trimesh
 import logging
+import time
+from typing import Iterable, Tuple
+
+import numpy as np
+import pyvista as pv
+import trimesh
 from PIL import Image
-from dddguardrails.config import settings    
+
+from dddguardrails.config import settings
 
 log = logging.getLogger(__name__)
 

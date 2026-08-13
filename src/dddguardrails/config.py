@@ -29,20 +29,17 @@ class Settings(BaseSettings):
         (45, 45),
         (225, 45),
     )
-    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-5.6-luna")
     openai_api_key: str
 
-    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+    ollama_api_key: str = os.getenv("OLLAMA_API_KEY", "sk-no-key-local-ollama")
+    ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1/")
+
     gemini_api_key: str
+    gemini_base_url: str = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
 
-    ollama_model: str = os.getenv("OLLAMA_MODEL", "qwen3-vl:235b-cloud")
-    ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-
-    groq_model: str = os.getenv("GROQ_MODEL", "qwen/qwen3.6-27b")
     groq_api_key: str = os.getenv("GROQ_API_KEY")
     groq_base_url: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 
-    cerebras_model: str = os.getenv("CEREBRAS_MODEL", "qwen/qwen3.6-27b")
     cerebras_api_key: str = os.getenv("CEREBRAS_API_KEY")
     cerebras_base_url: str = os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.ai/v1")
 

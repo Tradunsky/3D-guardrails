@@ -9,7 +9,6 @@ from typing import List
 
 from openai import AsyncOpenAI
 
-from dddguardrails.config import settings
 from dddguardrails.guardrail import Guardrail
 from dddguardrails.schemas import RiskFinding, RiskCategory
 
@@ -20,9 +19,8 @@ log = logging.getLogger("dddguardrails.llm")
 class OpenAIGuardrail(Guardrail):
     """Minimal client wrapper for the OpenAI Chat Completions API."""
 
-    def __init__(self, api_key: str = settings.openai_api_key, base_url: str | None = None):
+    def __init__(self, api_key: str, base_url: str | None = None):
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
-        self._default_model = settings.openai_model
 
     async def classify(
         self,
@@ -32,7 +30,7 @@ class OpenAIGuardrail(Guardrail):
         file_name: str,
         file_format: str,
         risk_categories: List[RiskCategory],
-        model: str | None = None,
+        model: str,
     ) -> List[RiskFinding]:
         """Classify a single screenshot."""
         cat_names = {c.name.lower() for c in risk_categories}
@@ -47,13 +45,13 @@ class OpenAIGuardrail(Guardrail):
             f"{categories_text}"
             "\n\nSeverity must be one of: none, low, medium, high."
             "\n If a category is not present, omit it from the list."
+            "\n Do not wrap output into markdown like ```json```."
         )
 
-        model_to_use = model or self._default_model
         log.info(
             "classifying view %d | model=%s file=%s",
             view_number,
-            model_to_use,
+            model,
             file_name,
         )
 
@@ -69,7 +67,7 @@ class OpenAIGuardrail(Guardrail):
         ]
 
         response = await self._client.chat.completions.create(
-            model=model_to_use,
+            model=(model),
             messages=[
                 {"role": "system", "content": instructions},
                 {"role": "user", "content": content},
@@ -110,7 +108,7 @@ class OpenAIGuardrail(Guardrail):
         try:
             parsed = json.loads(output_text)
         except json.JSONDecodeError as exc:  # pragma: no cover - runtime guard.
-            raise RuntimeError("LLM returned an unreadable payload.") from exc
+            raise RuntimeError(f"LLM returned an unreadable payload: {output_text}") from exc
         
         findings_list = (
             parsed.get("findings", []) if isinstance(parsed, dict) else []

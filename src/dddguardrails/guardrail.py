@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from typing import List
 
-from pydantic import BaseModel, Field
-from typing import Literal
-
 from dddguardrails.schemas import RiskCategory, RiskFinding
+
 
 class Guardrail:
     async def classify(
@@ -18,6 +16,6 @@ class Guardrail:
         file_name: str,
         file_format: str,
         risk_categories: List[RiskCategory],
-        model: str | None = None,
+        model: str,
     ) -> List[RiskFinding]:
         pass

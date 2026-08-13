@@ -21,7 +21,7 @@ tags:
 
 Run the FastAPI server to scan 3D assets for trust-and-safety risks.
 
-![Example](./.docs/images/extremism.png)
+![Example](./.docs/images/weapons.png)
 
 ### 3D Rendering Benchmark
 
