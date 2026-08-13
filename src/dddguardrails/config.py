@@ -40,6 +40,11 @@ class Settings(BaseSettings):
 
     groq_model: str = os.getenv("GROQ_MODEL", "qwen/qwen3.6-27b")
     groq_api_key: str = os.getenv("GROQ_API_KEY")
+    groq_base_url: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+
+    cerebras_model: str = os.getenv("CEREBRAS_MODEL", "qwen/qwen3.6-27b")
+    cerebras_api_key: str = os.getenv("CEREBRAS_API_KEY")
+    cerebras_base_url: str = os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.ai/v1")
 
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra="allow")
 

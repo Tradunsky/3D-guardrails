@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 """Gradio demo for 3D Guardrails with MCP support."""
 
-import sys
 import os
-import time
-import json
-
-import pandas as pd
+import sys
 from io import BytesIO
 from logging import getLogger
 from pathlib import Path
@@ -20,7 +16,7 @@ import pandas as pd
 from fastapi import UploadFile
 
 from dddguardrails.api import scan_asset
-from dddguardrails.schemas import ScanResponse, CATEGORIES, RiskCategory
+from dddguardrails.schemas import CATEGORIES, RiskCategory
 from dddguardrails.config import settings
 
 log = getLogger(__name__)
@@ -28,8 +24,7 @@ log = getLogger(__name__)
 
 async def scan_3d_asset(
     file_path: Optional[str], 
-    llm_provider: str, 
-    model: str,
+    llm_provider_model: str,
     res_w: int,
     res_h: int,
     risk_cats_df: pd.DataFrame,
@@ -39,8 +34,7 @@ async def scan_3d_asset(
 
     Args:
         file_path: The uploaded 3D file path
-        llm_provider: LLM provider to use ('openai', 'gemini', 'ollama')
-        model: Specific model to use
+        llm_provider_model: LLM provider/model to use
         res_w: Resolution width
         res_h: Resolution height
         risk_cats_df: DataFrame with custom risk categories
@@ -52,10 +46,11 @@ async def scan_3d_asset(
         return pd.DataFrame(
             columns=["Category", "Severity", "Rationale", "View Number"]
         ), "Please upload a 3D file to scan.", pd.DataFrame(
-            columns=[" ", "Legend", "ms"]
+            columns=["Stage", "Legend", "ms"]
         )
 
     try:
+        llm_provider, model = llm_provider_model.split("/", maxsplit=1)
         # Convert risk categories dataframe to list of RiskCategory for the API
         risk_cats = []
         for _, row in risk_cats_df.iterrows():
@@ -113,10 +108,10 @@ async def scan_3d_asset(
             )
         
         latency = result.metadata["latency"]
-        latencies_data = [            
-            {" ": " ", "Legend": f"Total Latency", "ms": latency["total_ms"]},
-            {" ": "  ", "Legend": f"Rendering", "ms": latency["rendering_ms"]},
-            {" ": "  ", "Legend": f"LLM", "ms": latency["llm_ms"]},
+        latencies_data = [
+            {"Stage": "Total", "Legend": "Total Latency", "ms": latency["total_ms"]},
+            {"Stage": "Breakdown", "Legend": "Rendering", "ms": latency["rendering_ms"]},
+            {"Stage": "Breakdown", "Legend": "LLM", "ms": latency["llm_ms"]},
         ]
         latencies_df = pd.DataFrame(latencies_data)
         
@@ -127,7 +122,7 @@ async def scan_3d_asset(
         return pd.DataFrame(
             columns=["Category", "Severity", "Rationale", "View Number"]
         ), f"❌ Error: {str(e)}", pd.DataFrame(
-            columns=[" ", "Legend", "ms"]
+            columns=["Stage", "Legend", "ms"]
         )
 
 
@@ -143,24 +138,19 @@ demo = gr.Interface(
     ],
     additional_inputs=[
         gr.Dropdown(
-            label="LVM Provider",
-            choices=["gemini", "openai", "ollama", "groq"],
-            value="groq",
-            info="Select the AI model provider for analysis",
-        ),
-        gr.Dropdown(
-            label="Model (Optional, Editable)",
-            value="qwen/qwen3.6-27b",
+            label="VLM (Editable)",
+            value="cerebras/gemma-4-31b",
             choices=[
-                "gemini-3.6-flash",
-                "gemini-3.5-flash-lite",
-                "gemini-3.1-pro-preview",
-                "gemma-4-31b-it",
-                "gemma-4-26b-a4b-it",
-                "gpt-5.6-luna",
-                "gpt-5.6-terra"
-                "qwen3-vl:235b-cloud",
-                "qwen/qwen3.6-27b",
+                "gemini/gemini-3.6-flash",
+                "gemini/gemini-3.5-flash-lite",
+                "gemini/gemini-3.1-pro-preview",
+                "gemini/gemma-4-31b-it",
+                "gemini/gemma-4-26b-a4b-it",
+                "openai/gpt-5.6-luna",
+                "openai/gpt-5.6-terra",
+                "ollama/qwen3-vl:235b-cloud",
+                "groq/qwen/qwen3.6-27b",
+                "cerebras/gemma-4-31b",
             ],
             info="Leave empty to use the provider's default model",
             allow_custom_value=True,
@@ -196,7 +186,7 @@ demo = gr.Interface(
         gr.Textbox(label="Status"),
         gr.BarPlot(
             x="ms",
-            y=" ",
+            y="Stage",
             x_title="Latency (ms)",
             y_title="",
             color="Legend",
@@ -211,8 +201,7 @@ demo = gr.Interface(
     examples=[
         [
             str(dataset_dir / file),
-            "groq",
-            "meta-llama/llama-4-scout-17b-16e-instruct",
+            "cerebras/gemma-4-31b",
             settings.screenshot_resolution[0],
             settings.screenshot_resolution[1],
             [[c.name, c.description] for c in CATEGORIES]

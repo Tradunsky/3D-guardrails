@@ -5,32 +5,28 @@ from __future__ import annotations
 import logging
 import os
 import time
-import tempfile
-import json
-import httpx
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import httpx
 import ollama
 import uvicorn
-from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
-
 from google.genai.errors import ClientError
-from pydantic import Json
 
 from dddguardrails.config import settings
 from dddguardrails.guardrail import Guardrail
+from dddguardrails.guardrails.cerebras_llm import CerebrasGuardrail
 from dddguardrails.guardrails.gemini_llm import GeminiGuardrail
+from dddguardrails.guardrails.groq_llm import GroqGuardrail
 from dddguardrails.guardrails.ollama_llm import OllamaGuardrail
 from dddguardrails.guardrails.openai_llm import OpenAIGuardrail
-from dddguardrails.guardrails.groq_llm import GroqGuardrail
 from dddguardrails.logger_config import configure_logging
 from dddguardrails.rendering import (
     AssetProcessingError,
     render_tiled_views,
 )
-
 from dddguardrails.schemas import RiskCategory, CATEGORIES, ScanResponse
 
 configure_logging()
@@ -62,12 +58,13 @@ _guardrail_classes: dict[str, type[Guardrail]] = {
     "gemini": GeminiGuardrail,
     "ollama": OllamaGuardrail,
     "groq": GroqGuardrail,
+    "cerebras": CerebrasGuardrail,
 }
 
 _guardrail_cache: dict[str, Guardrail] = {}
 
 
-def _get_guardrail(provider: str = "gemini", base_url: str | None = None) -> Guardrail:    
+def _get_guardrail(provider: str, base_url: str | None = None) -> Guardrail:
     cache_key = f"{provider}_{base_url}"
     if cache_key in _guardrail_cache:
         return _guardrail_cache[cache_key]
@@ -131,7 +128,7 @@ async def scan_asset(
     url: str | None = Form(None, description="URL of the 3D asset to scan"),
     llm_provider: str = Form(
         "ollama",
-        description="LLM provider to use for analysis (openai, gemini, ollama, groq)",
+        description="LLM provider to use for analysis (openai, gemini, ollama, groq, cerebras)",
     ),
     model: str | None = Form(
         "qwen3-vl:235b-cloud",

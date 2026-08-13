@@ -11,14 +11,14 @@ from openai import AsyncOpenAI
 
 from dddguardrails.config import settings
 from dddguardrails.guardrail import Guardrail
-from dddguardrails.schemas import RiskFinding, CATEGORIES, RiskCategory
+from dddguardrails.schemas import RiskFinding, RiskCategory
 
 
 log = logging.getLogger("dddguardrails.llm")
 
 
 class OpenAIGuardrail(Guardrail):
-    """Minimal client wrapper for the OpenAI Responses API."""
+    """Minimal client wrapper for the OpenAI Chat Completions API."""
 
     def __init__(self, api_key: str = settings.openai_api_key, base_url: str | None = None):
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
@@ -60,23 +60,23 @@ class OpenAIGuardrail(Guardrail):
         b64 = base64.b64encode(screenshot).decode("ascii")
         content = [
             {
-                "type": "input_text",
-                "text": instructions,
-            },
-            {
-                "type": "input_image",
-                "image_url": f"data:image/png;base64,{b64}",
-                "detail": "high",
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/png;base64,{b64}",
+                    "detail": "high",
+                },
             },
         ]
 
-        response = await self._client.responses.create(
+        response = await self._client.chat.completions.create(
             model=model_to_use,
-            input=[{"role": "user", "content": content}],
-            instructions=instructions,
-            text={
-                "format": {
-                    "type": "json_schema",
+            messages=[
+                {"role": "system", "content": instructions},
+                {"role": "user", "content": content},
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
                     "name": "risk_findings",
                     "schema": {
                         "type": "object",
@@ -102,10 +102,11 @@ class OpenAIGuardrail(Guardrail):
                         "required": ["findings"],
                         "additionalProperties": False,
                     },
-                }
+                    "strict": True,
+                },
             },
         )
-        output_text = response.output[0].content[0].text if response.output else ""
+        output_text = response.choices[0].message.content or ""
         try:
             parsed = json.loads(output_text)
         except json.JSONDecodeError as exc:  # pragma: no cover - runtime guard.
