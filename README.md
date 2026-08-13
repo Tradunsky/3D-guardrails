@@ -129,6 +129,7 @@ For guidance on writing effective tests, see: [Testing on the Toilet: Change-Det
 - [x] Gemini support
 - [x] Ollama support
 - [x] Groq support
+- [x] Cerebras support
 - [x] User specified provider and models support
 - [x] Early exit on the first violation (save tokens)
 - [x] Tile rendering for faster violation/non-violation detection
