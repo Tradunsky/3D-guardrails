@@ -141,9 +141,9 @@ demo = gr.Interface(
             label="VLM (Editable)",
             value="cerebras/gemma-4-31b",
             choices=[
+                "gemini/gemini-3.7-flash",
                 "gemini/gemini-3.6-flash",
                 "gemini/gemini-3.5-flash-lite",
-                "gemini/gemini-3.1-pro-preview",
                 "gemini/gemma-4-31b-it",
                 "gemini/gemma-4-26b-a4b-it",
                 "openai/gpt-5.6-luna",
