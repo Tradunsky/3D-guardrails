@@ -197,8 +197,13 @@ async def scan_asset(
 
     end_time = time.perf_counter()
     total_ms = (end_time - start_time) * 1000
-    
-    log.info("scan done | findings=%d views=%d", len(findings), views_evaluated)
+    latency = {
+        "total_ms": round(total_ms, 2),
+        "download_ms": round(total_download_ms, 2),
+        "llm_ms": round(llm_total_ms, 2),
+        "rendering_ms": round(rendering_total_ms, 2),
+    }
+    log.info("scan done | findings=%d views=%d in %s", len(findings), views_evaluated, latency)
 
     return ScanResponse(
         file_name=file_name,
@@ -208,12 +213,7 @@ async def scan_asset(
             "views_evaluated": views_evaluated, 
             "model": model, 
             "llm_provider": llm_provider,
-            "latency": {
-                "total_ms": round(total_ms, 2),
-                "download_ms": round(total_download_ms, 2),
-                "llm_ms": round(llm_total_ms, 2),
-                "rendering_ms": round(rendering_total_ms, 2),
-            }
+            "latency": latency
         },
     )
 

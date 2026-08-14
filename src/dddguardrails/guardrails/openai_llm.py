@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import base64
-import json
 import logging
 from typing import List
 
 from openai import AsyncOpenAI
 
 from dddguardrails.guardrail import Guardrail
-from dddguardrails.schemas import RiskFinding, RiskCategory
-
+from dddguardrails.schemas import RiskFinding, RiskCategory, RiskFindings
 
 log = logging.getLogger("dddguardrails.llm")
 
@@ -33,8 +31,7 @@ class OpenAIGuardrail(Guardrail):
         model: str,
     ) -> List[RiskFinding]:
         """Classify a single screenshot."""
-        cat_names = {c.name.lower() for c in risk_categories}
-        
+
         categories_text = "\n".join(f"- {c.name.lower()}: {c.description}" for c in risk_categories)
         view_text = f"view #{view_number}" if view_number > 0 else "multiple views (tiled)"
         instructions = (
@@ -66,73 +63,12 @@ class OpenAIGuardrail(Guardrail):
             },
         ]
 
-        response = await self._client.chat.completions.create(
-            model=(model),
+        response = await self._client.chat.completions.parse(
+            model=model,
             messages=[
                 {"role": "system", "content": instructions},
                 {"role": "user", "content": content},
             ],
-            response_format={
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "risk_findings",
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "findings": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "category": {"type": "string"},
-                                        "severity": {"type": "string"},
-                                        "rationale": {"type": "string"},
-                                    },
-                                    "required": [
-                                        "category",
-                                        "severity",
-                                        "rationale",
-                                    ],
-                                    "additionalProperties": False,
-                                },
-                            },
-                        },
-                        "required": ["findings"],
-                        "additionalProperties": False,
-                    },
-                    "strict": True,
-                },
-            },
+            response_format=RiskFindings,
         )
-        output_text = response.choices[0].message.content or ""
-        try:
-            parsed = json.loads(output_text)
-        except json.JSONDecodeError as exc:  # pragma: no cover - runtime guard.
-            raise RuntimeError(f"LLM returned an unreadable payload: {output_text}") from exc
-        
-        findings_list = (
-            parsed.get("findings", []) if isinstance(parsed, dict) else []
-        )
-
-        if findings_list:
-            log.info(
-                "found violations in screenshot %d for file=%s",
-                view_number,
-                file_name,
-            )
-            normalized: List[RiskFinding] = []
-            for finding in findings_list:
-                category = finding.get("category", "").strip().lower()
-                if category not in cat_names:
-                    continue
-                normalized.append(
-                    RiskFinding(
-                        category=category,
-                        severity=finding.get("severity", "none").lower(),
-                        rationale=finding.get("rationale", ""),
-                        view_number=view_number,
-                    )
-                )
-            return normalized
-
-        return []
+        return response.choices[0].message.parsed.findings

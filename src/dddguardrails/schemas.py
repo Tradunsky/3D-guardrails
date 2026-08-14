@@ -28,9 +28,11 @@ class RiskFinding(BaseModel):
 
     category: str = Field(..., description="The classification category")
     severity: Literal["none", "low", "medium", "high"] = Field(..., description="Severity level of the classification")
-    rationale: str = Field(..., description="Reason for the classification")
-    view_number: int = Field(..., description="The view/screenshot number where this finding was detected")
+    rationale: str | None = Field(default=None, description="Optional, brief reason why the category identified [1 sentence max]")
+    view_number: int = Field(default=0, description="Optional, view/image number where this finding was detected")
 
+class RiskFindings(BaseModel):
+    findings: list[RiskFinding]
 
 class ScanResponse(BaseModel):
     file_name: str
